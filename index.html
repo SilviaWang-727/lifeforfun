@@ -441,7 +441,9 @@ function analyze(text,url){
   if(!area)area="其他商圈";if(!district)district="未判斷";
   var type="市集",found=false;
   for(k in TYPE_KEYS){if(TYPE_KEYS[k].some(function(w){return text.indexOf(w)>=0})){type=k;found=true;break}}
-  var src=/instagram\.com/.test(url)?"Instagram":/facebook\.com|fb\.com/.test(url)?"Facebook":/threads\.net/.test(url)?"Threads":url?"網站":"貼文";
+  var host="";try{host=new URL(url).hostname.toLowerCase()}catch(e){}
+  var isHost=function(d){return host===d||host.slice(-d.length-1)==="."+d};
+  var src=isHost("instagram.com")||isHost("instagr.am")?"Instagram":isHost("facebook.com")||isHost("fb.com")||isHost("fb.watch")||isHost("fb.me")?"Facebook":isHost("threads.net")||isHost("threads.com")?"Threads":url?"網站":"貼文";
   return {id:"u"+Date.now(),title:title,date:date,endDate:endDate,start:start,end:end,place:place||"地點未標示",area:area,district:district,type:type,src:src,url:url,visited:false,folder:""};
 }
 function showPreview(r){
