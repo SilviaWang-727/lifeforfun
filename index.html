@@ -350,16 +350,57 @@ function renderGoogle(){
 
 /* 貼文分析 */
 var SAMPLE="🎉【冬日夜市×手作市集】\n日期：11/28（六）14:00-20:00\n📍地點：士林夜市 慈諴宮前廣場\n超過 40 組攤位、手作小物、咖啡甜點一次逛，歡迎帶朋友來玩！\n#士林 #市集";
+/* 名稱與地點的判斷：先看明確標籤，再看括號標題，最後才取第一行有意義的文字 */
+var META_RE=/^(?:[#＃]|https?:|日期|時間|時段|地點|地址|場地|會場|票價|費用|報名|主辦|協辦|洽詢|電話|備註|注意|交通|Date|Time|Where|Location|Tel)/i;
+var GENERIC_RE=/^(?:活動資訊|活動詳情|活動內容|活動介紹|活動簡介|重要公告|公告|報名|售票|限時|快訊|消息|詳情|日期|時間|地點|限定|開跑)$/;
+function cleanText(t){
+  return String(t).replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu,"").replace(/https?:\/\/\S+/g,"").replace(/[#＃]\S+/g,"").replace(/\s+/g," ").trim();
+}
+function guessTitle(lines){
+  var all=lines.join("\n"),m,i,t;
+  m=all.match(/(?:活動名稱|活動主題|展覽名稱|展名|演出名稱|課程名稱|主題|標題)\s*[:：]\s*([^\n]+)/);
+  if(m){t=cleanText(m[1]).replace(/^[「『《【]|[」』》】]$/g,"");if(t.length>=2)return t.slice(0,40)}
+  var re=/[【「『《]([^】」』》\n]{3,40})[】」』》]/g;
+  while((m=re.exec(all))){t=cleanText(m[1]);if(t.length>=3&&!GENERIC_RE.test(t)&&!/^[\d\s\/:：\-–~月日]+$/.test(t))return t.slice(0,40)}
+  for(i=0;i<lines.length;i++){
+    t=cleanText(lines[i]);
+    if(t.length<4||META_RE.test(t)||/^[\d\s\/:：\-–~年月日週周（）()一二三四五六]+$/.test(t))continue;
+    t=t.split(/[｜|]/)[0].replace(/^[^一-龥A-Za-z0-9「『《【\[]+/,"").replace(/[【】\[\]「」『』《》]/g,"").replace(/[！!。，,~～]+$/,"").trim();
+    t=t.split(/\s+(?:就在|將在|在|於|@)/)[0];
+    if(t.length>=3&&!GENERIC_RE.test(t))return t.slice(0,40);
+  }
+  return "未命名活動";
+}
+var VENUE_RE=/(廣場|公園|園區|文創|展覽館|展演|會館|大樓|書店|咖啡|市場|夜市|車站|劇場|體育館|運動中心|Live ?House|美術館|博物館|圖書館|商場|百貨|教室|空間|倉庫|紅樓|河濱)/;
+var ADDR_RE=/[一-龥]{2}[縣市][^\s，,。；;]{0,8}?[區鄉鎮市][^\s，,。；;]*(?:路|街|大道|巷|弄|號)[^\s，,。；;]*/;
+function tidyPlace(p){
+  p=cleanText(p).replace(/^(?:(?:活動地點|集合地點|活動場地|地點|地址|場地|會場|位置|Location|Where)\s*)?[:：\s]*/i,"").split(/\s*(?:[｜|]|時間[:：]|日期[:：]|票價|費用|報名)/)[0];
+  p=p.replace(/[（(][^）)]*(?:交通|捷運|停車|步行|出口)[^）)]*[）)]/g,"").replace(/[，,。；;\s]+$/,"").trim();
+  return p.slice(0,50);
+}
+function guessPlace(lines,title){
+  var all=lines.join("\n"),m=all.match(/(?:活動地點|集合地點|活動場地|地點|地址|場地|會場|位置|Location|Where|📍|📌)\s*[:：]?\s*([^\n]+)/i),p;
+  if(m){p=tidyPlace(m[1]);if(p.length>=2)return p}
+  m=all.match(ADDR_RE);if(m)return tidyPlace(m[0]);
+  for(var i=0;i<lines.length;i++){
+    var t=cleanText(lines[i]);
+    var at=t.match(/\s(?:就在|將在|在|於|@)\s*(\S.*)$/);
+    if(at&&t.indexOf(title)===0&&VENUE_RE.test(at[1]))return tidyPlace(at[1]);
+    if(t===title||t.length>40||META_RE.test(t))continue;
+    if(VENUE_RE.test(t))return tidyPlace(t);
+  }
+  return "";
+}
 function analyze(text,url){
   var lines=text.split(/\n/).map(function(l){return l.trim()}).filter(Boolean);
-  var title=(lines[0]||"未命名活動").replace(/^[^一-龥A-Za-z0-9【\[]+/,"").replace(/[【】\[\]]/g,"").slice(0,40);
+  var title=guessTitle(lines),place0=guessPlace(lines,title);
   var m=text.match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})/),y=2026,mo,d;
   if(m){y=+m[1];mo=+m[2];d=+m[3]}else{m=text.match(/(\d{1,2})[\/月](\d{1,2})/);if(m){mo=+m[1];d=+m[2]}}
   var date=(mo&&d)?y+"-"+("0"+mo).slice(-2)+"-"+("0"+d).slice(-2):TODAY;
   var tm=text.match(/(\d{1,2}):(\d{2})\s*[-–~至到]\s*(\d{1,2}):(\d{2})/),start="",end="";
   if(tm){start=("0"+tm[1]).slice(-2)+":"+tm[2];end=("0"+tm[3]).slice(-2)+":"+tm[4]}
   else{var t1=text.match(/(\d{1,2}):(\d{2})/);if(t1)start=("0"+t1[1]).slice(-2)+":"+t1[2]}
-  var pm=text.match(/(?:地點|地址|📍)\s*[:：]?\s*([^\n]+)/),place=pm?pm[1].trim():"";
+  var place=place0;
   var hay=place+text,area="",k;
   for(k in AREA_KEYS){if(AREA_KEYS[k].some(function(w){return hay.indexOf(w)>=0})){area=k;break}}
   var district="";
@@ -369,7 +410,7 @@ function analyze(text,url){
   var type="市集",found=false;
   for(k in TYPE_KEYS){if(TYPE_KEYS[k].some(function(w){return text.indexOf(w)>=0})){type=k;found=true;break}}
   var src=/instagram\.com/.test(url)?"Instagram":/facebook\.com|fb\.com/.test(url)?"Facebook":/threads\.net/.test(url)?"Threads":url?"網站":"貼文";
-  return {id:"u"+Date.now(),title:title,date:date,start:start,end:end,place:place||title,area:area,district:district,type:type,src:src,url:url,visited:false,folder:""};
+  return {id:"u"+Date.now(),title:title,date:date,start:start,end:end,place:place||"地點未標示",area:area,district:district,type:type,src:src,url:url,visited:false,folder:""};
 }
 function showPreview(r){
   var tOpts=TYPES.map(function(t){return '<option'+(t===r.type?" selected":"")+'>'+t+'</option>'}).join("");
