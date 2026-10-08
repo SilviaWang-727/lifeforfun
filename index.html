@@ -5,7 +5,7 @@
 <title>活動雷達</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-/* 版面：頂部工具列 → 數字摘要 → 貼文分析 → 篩選列 → 依商圈/行政區/資料夾分組的活動卡片 */
+/* 版面：頂部工具列 → 數字摘要 → 貼文分析 → 篩選列 → 依商圈/行政區/分類分組的活動卡片 */
 :root{
   --bg:#f7f1e6; --surface:#fffdf9; --fg:#3f3a35; --muted:#6b6256; --line:#e2d7c3;
   --accent:#2d7664; --accent-fg:#ffffff; --accent-soft:#e1f1ed;
@@ -161,13 +161,13 @@ dialog::backdrop{background:rgba(60,45,30,.45)}
     <select id="fArea" aria-label="商圈"></select>
     <select id="fDistrict" aria-label="行政區"></select>
     <div class="grow2"><select id="fGroup" aria-label="分組方式">
-      <option value="month">依月份分組</option>
-      <option value="area" selected>依商圈分組</option>
+      <option value="month" selected>依月份分組</option>
+      <option value="area">依商圈分組</option>
       <option value="district">依行政區分組</option>
-      <option value="folder">依資料夾分組</option>
+      <option value="folder">依分類分組</option>
     </select></div>
   </div>
-  <div class="folders" id="folders" aria-label="資料夾"></div>
+  <div class="folders" id="folders" aria-label="分類"></div>
   <div class="row" style="margin-top:10px">
     <label class="row note"><input type="checkbox" id="fHideVisited"> 隱藏已去過</label>
     <label class="row note"><input type="checkbox" id="fOnlyVisited"> 只看已去過</label>
@@ -178,8 +178,8 @@ dialog::backdrop{background:rgba(60,45,30,.45)}
 </div>
 
 <dialog id="dlgFolder">
-  <h2 id="folderTitle">建立資料夾</h2>
-  <label class="note" for="folderName">資料夾名稱</label>
+  <h2 id="folderTitle">建立分類</h2>
+  <label class="note" for="folderName">分類名稱</label>
   <input type="text" id="folderName" placeholder="例如：週末約會、跟同事去" maxlength="20">
   <div class="row" style="margin-top:12px;justify-content:flex-end">
     <button class="btn" type="button" data-close>取消</button>
@@ -209,7 +209,7 @@ dialog::backdrop{background:rgba(60,45,30,.45)}
 
 <dialog id="dlgGoogle">
   <h2>連結 Google 帳號</h2>
-  <p class="note">登入後，已去過標記、資料夾與清單會同步到雲端，換手機或電腦也能看到，也能建立分享連結。登入只會取得你的 Google Email 與名稱。</p>
+  <p class="note">登入後，已去過標記、分類與清單會同步到雲端，換手機或電腦也能看到，也能建立分享連結。登入只會取得你的 Google Email 與名稱。</p>
   <div class="row" style="margin-top:12px;justify-content:flex-end">
     <button class="btn" type="button" data-close>取消</button>
     <button class="btn primary" id="btnGoogleLogin" type="button">以 Google 登入</button>
@@ -227,7 +227,7 @@ dialog::backdrop{background:rgba(60,45,30,.45)}
 
 <div class="ctxmenu" id="folderMenu" role="menu" hidden>
   <button type="button" role="menuitem" id="btnRenameFolder">✎ 重新命名</button>
-  <button type="button" role="menuitem" id="btnDelFolder">🗑 刪除資料夾</button>
+  <button type="button" role="menuitem" id="btnDelFolder">🗑 刪除分類</button>
 </div>
 
 <div class="toast" id="toast" hidden></div>
@@ -296,8 +296,8 @@ function renderFilters(){
   var f=$("folders");
   var h='<button class="chip" type="button" data-folder="" aria-pressed="'+(state.activeFolder===""?"true":"false")+'">全部</button>';
   state.folders.forEach(function(n){var c=state.events.filter(function(e){return e.folder===n}).length;h+='<button class="chip" type="button" data-folder="'+esc(n)+'" aria-pressed="'+(state.activeFolder===n)+'">📁 '+esc(n)+' · '+c+'</button>'});
-  h+='<button class="chip" type="button" id="btnNewFolder">＋ 新資料夾</button>';
-  if(state.folders.length)h+='<span class="note" style="flex-basis:100%">提示：在資料夾上按右鍵（手機請長按）可重新命名或刪除</span>';
+  h+='<button class="chip" type="button" id="btnNewFolder">＋ 新分類</button>';
+  if(state.folders.length)h+='<span class="note" style="flex-basis:100%">提示：在分類上按右鍵（手機請長按）可重新命名或刪除</span>';
   f.innerHTML=h;
 }
 
@@ -337,7 +337,7 @@ function srcIcon(s,u){
   return safeUrl(u)?'<a class="srclink" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" title="開啟來源：'+esc(s)+'" aria-label="開啟來源：'+esc(s)+'（新分頁）">'+ic+'</a>':ic;
 }
 function card(e){
-  var opts='<option value="">'+(e.folder?"移出資料夾":"加入資料夾")+'</option>'+state.folders.map(function(n){return '<option'+(e.folder===n?" selected":"")+'>'+esc(n)+'</option>'}).join("");
+  var opts='<option value="">'+(e.folder?"移出分類":"加入分類")+'</option>'+state.folders.map(function(n){return '<option'+(e.folder===n?" selected":"")+'>'+esc(n)+'</option>'}).join("");
   return '<article class="card'+(e.visited?" visited":"")+'" data-id="'+e.id+'">'+'<div class="art">'+(TYPE_ART[e.type]||"")+'</div>'+
    '<div class="date">'+fmtDate(e)+(endOf(e)<TODAY?" · 已結束":"")+'</div>'+
    '<h4>'+esc(e.title)+'</h4>'+
@@ -348,7 +348,7 @@ function card(e){
     '<a class="btn sm" data-act="cal" href="'+calUrl(e)+'" target="_blank" rel="noopener"'+(e.scheduled?' aria-pressed="true"':'')+'>'+(e.scheduled?"✓ 已安排":"加入行事曆")+'</a>'+
     (e.scheduled?'<button class="btn sm" type="button" data-act="unsched" title="取消「已安排」標記">取消安排</button>':'')+
     '<button class="btn sm" type="button" data-act="visit" aria-pressed="'+e.visited+'">'+(e.visited?"✓ 已去過":"標記已去過")+'</button>'+
-    '<select data-act="folder" aria-label="放進資料夾">'+opts+'</select>'+
+    '<select data-act="folder" aria-label="放進分類">'+opts+'</select>'+
     (e.id.charAt(0)==="u"?'<button class="btn sm" type="button" data-act="del">刪除</button>':'')+
    '</div></article>';
 }
@@ -367,8 +367,8 @@ function renderList(){
 function render(){renderStats();renderFilters();renderList();renderGoogle()}
 function renderGoogle(){
   var b=$("btnGoogle");
-  if(user){b.innerHTML='<span class="avatar">'+esc((user.email||"G").charAt(0).toUpperCase())+'</span> '+esc(user.email||"已登入")+' · 登出';$("syncNote").textContent="已登入 Google：已去過、資料夾與清單會自動同步到雲端。";return}
-  b.textContent="連結 Google 帳號";$("syncNote").textContent="目前「已去過」與資料夾只存在這台裝置。連結 Google 帳號後可跨裝置同步。"
+  if(user){b.innerHTML='<span class="avatar">'+esc((user.email||"G").charAt(0).toUpperCase())+'</span> '+esc(user.email||"已登入")+' · 登出';$("syncNote").textContent="已登入 Google：已去過、分類與清單會自動同步到雲端。";return}
+  b.textContent="連結 Google 帳號";$("syncNote").textContent="目前「已去過」與分類只存在這台裝置。連結 Google 帳號後可跨裝置同步。"
 }
 
 /* 貼文分析 */
@@ -509,7 +509,7 @@ function shareList(){
 }
 function renderShare(){
   var s=$("shareScope"),cur=s.value||"all";
-  s.innerHTML='<option value="all">全部活動</option><option value="todo">還沒去的活動</option>'+state.folders.map(function(n){return '<option value="'+esc(n)+'">資料夾：'+esc(n)+'</option>'}).join("");
+  s.innerHTML='<option value="all">全部活動</option><option value="todo">還沒去的活動</option>'+state.folders.map(function(n){return '<option value="'+esc(n)+'">分類：'+esc(n)+'</option>'}).join("");
   s.value=cur;
   $("shareCode").value=encode(shareList().map(function(e){return {url:e.url||"",title:e.title,date:e.date,endDate:e.endDate||"",start:e.start,end:e.end,place:e.place,area:e.area,district:e.district,type:e.type,src:e.src}}));
 }
@@ -525,19 +525,19 @@ document.addEventListener("click",function(ev){
   var chip=t.closest&&t.closest("[data-folder]");
   if(chip&&Date.now()-lpFired<700){return}
   if(chip){closeFolderMenu();state.activeFolder=chip.getAttribute("data-folder");save();render();return}
-  if(t.id==="btnNewFolder"){folderEdit=null;$("folderTitle").textContent="建立資料夾";$("btnFolderOk").textContent="建立";$("folderName").value="";$("dlgFolder").showModal();return}
+  if(t.id==="btnNewFolder"){folderEdit=null;$("folderTitle").textContent="建立分類";$("btnFolderOk").textContent="建立";$("folderName").value="";$("dlgFolder").showModal();return}
   if(!t.closest("#folderMenu"))closeFolderMenu();
   if(t.id==="btnRenameFolder"){
-    folderEdit=menuFolder;closeFolderMenu();$("folderTitle").textContent="重新命名資料夾";$("btnFolderOk").textContent="儲存";
+    folderEdit=menuFolder;closeFolderMenu();$("folderTitle").textContent="重新命名分類";$("btnFolderOk").textContent="儲存";
     $("folderName").value=folderEdit;$("dlgFolder").showModal();return;
   }
   if(t.id==="btnDelFolder"){
     var dn=menuFolder;closeFolderMenu();
     var cnt=state.events.filter(function(x){return x.folder===dn}).length;
-    if(!confirm("確定要刪除資料夾「"+dn+"」嗎？\n裡面的 "+cnt+" 場活動不會被刪除，只會移出資料夾。"))return;
+    if(!confirm("確定要刪除分類「"+dn+"」嗎？\n裡面的 "+cnt+" 場活動不會被刪除，只會移出分類。"))return;
     state.folders=state.folders.filter(function(n){return n!==dn});
     state.events.forEach(function(x){if(x.folder===dn)x.folder=""});
-    state.activeFolder="";save();render();toast("已刪除資料夾「"+dn+"」");return;
+    state.activeFolder="";save();render();toast("已刪除分類「"+dn+"」");return;
   }
   var act=t.getAttribute&&t.getAttribute("data-act");
   if(act){
@@ -552,7 +552,7 @@ document.addEventListener("change",function(ev){
   var t=ev.target;
   if(t.getAttribute("data-act")==="folder"){
     var id=t.closest(".card").getAttribute("data-id");
-    state.events.forEach(function(e){if(e.id===id)e.folder=t.value});save();render();toast(t.value?"已放進「"+t.value+"」":"已移出資料夾");
+    state.events.forEach(function(e){if(e.id===id)e.folder=t.value});save();render();toast(t.value?"已放進「"+t.value+"」":"已移出分類");
   }
 });
 ["q","fType","fMonth","fArea","fDistrict","fGroup","fHideVisited","fOnlyVisited"].forEach(function(id){$(id).addEventListener("input",renderList)});
@@ -654,7 +654,7 @@ $("btnProxy").onclick=function(){
 };
 $("srcUrl").addEventListener("keydown",function(e){if(e.key==="Enter")$("btnAnalyze").click()});
 var folderEdit=null;
-/* 資料夾選單：右鍵（電腦）或長按（手機）開啟 */
+/* 分類選單：右鍵（電腦）或長按（手機）開啟 */
 var menuFolder="",lpTimer=null,lpFired=0,lpX=0,lpY=0;
 function openFolderMenu(name,x,y,chipEl){
   menuFolder=name;
@@ -662,7 +662,7 @@ function openFolderMenu(name,x,y,chipEl){
   var w=m.offsetWidth,h=m.offsetHeight;
   m.style.left=Math.max(8,Math.min(x,innerWidth-w-8))+"px";
   m.style.top=Math.max(8,Math.min(y,innerHeight-h-8))+"px";
-  m.setAttribute("aria-label","資料夾「"+name+"」選單");
+  m.setAttribute("aria-label","分類「"+name+"」選單");
   $("btnRenameFolder").focus();
 }
 function closeFolderMenu(){$("folderMenu").hidden=true}
@@ -695,17 +695,17 @@ window.addEventListener("scroll",closeFolderMenu,{passive:true});
 window.addEventListener("resize",closeFolderMenu);
 $("btnFolderOk").onclick=function(){
   var n=$("folderName").value.trim();
-  if(!n){toast("請輸入資料夾名稱");return}
+  if(!n){toast("請輸入分類名稱");return}
   if(folderEdit!==null){
     if(n===folderEdit){$("dlgFolder").close();return}
-    if(state.folders.indexOf(n)>=0){toast("已有同名資料夾");return}
+    if(state.folders.indexOf(n)>=0){toast("已有同名分類");return}
     var old=folderEdit;
     state.folders=state.folders.map(function(x){return x===old?n:x});
     state.events.forEach(function(x){if(x.folder===old)x.folder=n});
     if(state.activeFolder===old)state.activeFolder=n;
     folderEdit=null;save();$("dlgFolder").close();render();toast("已改名為「"+n+"」");return;
   }
-  if(state.folders.indexOf(n)>=0){toast("已有同名資料夾");return}
+  if(state.folders.indexOf(n)>=0){toast("已有同名分類");return}
   state.folders.push(n);save();$("dlgFolder").close();render();toast("已建立「"+n+"」");
 };
 $("folderName").addEventListener("keydown",function(e){if(e.key==="Enter")$("btnFolderOk").click()});
