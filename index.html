@@ -262,12 +262,10 @@ var TODAY="2026-10-08";
 
 /* 數字摘要 */
 function renderStats(){
-  var ev=state.events,up=ev.filter(function(e){return endOf(e)>=TODAY&&!e.visited}).length;
-  var thisM=ev.filter(function(e){return e.date.slice(0,7)==="2026-10"&&endOf(e)>=TODAY}).length;
+  var ev=state.events,total=ev.length;
   var vis=ev.filter(function(e){return e.visited}).length;
-  var areas={};ev.forEach(function(e){areas[e.area]=(areas[e.area]||0)+1});
-  var top=Object.keys(areas).sort(function(a,b){return areas[b]-areas[a]})[0]||"—";
-  $("stats").innerHTML=[[ev.length,"已收集活動"],[up,"還沒去的待辦"],[thisM,"本月剩餘活動"],[vis,"已去過"],[top,"最熱門商圈"]].map(function(s){return '<div class="stat"><b>'+esc(s[0])+'</b><span>'+s[1]+'</span></div>'}).join("");
+  var sch=ev.filter(function(e){return e.scheduled}).length;
+  $("stats").innerHTML=[[total,"已收集"],[vis,"去過了"],[sch,"已安排"],[total-vis,"還沒去"]].map(function(s){return '<div class="stat"><b>'+esc(s[0])+'</b><span>'+s[1]+'</span></div>'}).join("");
 }
 
 /* 篩選器選項 */
@@ -324,7 +322,8 @@ function card(e){
    '<div class="tags"><span class="tag type">'+esc(e.type)+'</span><span class="tag">'+esc(e.area)+'</span><span class="tag">'+esc(e.district)+'</span><span class="tag src" title="來源：'+esc(e.src)+'" aria-label="來源：'+esc(e.src)+'">'+srcIcon(e.src,e.url)+'</span></div>'+
    '<div class="actions">'+
     '<a class="btn sm" href="'+mapUrl(e)+'" target="_blank" rel="noopener">地圖</a>'+
-    '<a class="btn sm" href="'+calUrl(e)+'" target="_blank" rel="noopener">加入行事曆</a>'+
+    '<a class="btn sm" data-act="cal" href="'+calUrl(e)+'" target="_blank" rel="noopener"'+(e.scheduled?' aria-pressed="true"':'')+'>'+(e.scheduled?"✓ 已安排":"加入行事曆")+'</a>'+
+    (e.scheduled?'<button class="btn sm" type="button" data-act="unsched" title="取消「已安排」標記">取消安排</button>':'')+
     '<button class="btn sm" type="button" data-act="visit" aria-pressed="'+e.visited+'">'+(e.visited?"✓ 已去過":"標記已去過")+'</button>'+
     '<select data-act="folder" aria-label="放進資料夾">'+opts+'</select>'+
     (e.id.charAt(0)==="u"?'<button class="btn sm" type="button" data-act="del">刪除</button>':'')+
@@ -506,6 +505,8 @@ document.addEventListener("click",function(ev){
   var act=t.getAttribute&&t.getAttribute("data-act");
   if(act){
     var id=t.closest(".card").getAttribute("data-id"),e=state.events.filter(function(x){return x.id===id})[0];
+    if(act==="cal"){e.scheduled=true;setTimeout(function(){save();render()},80);return}
+    if(act==="unsched"){e.scheduled=false;save();render();toast("已取消「已安排」標記");return}
     if(act==="visit"){e.visited=!e.visited;save();render();toast(e.visited?"已標記為去過":"已取消標記")}
     if(act==="del"){state.events=state.events.filter(function(x){return x.id!==id});save();render()}
   }
@@ -723,7 +724,7 @@ function loadPublic(msg){
     var old={},ids={};
     state.events.forEach(function(e){old[e.id]=e});
     var db=x.data.map(function(r){ids[r.id]=1;var o=old[r.id]||{};
-      return{id:r.id,title:r.title,date:r.event_date,endDate:r.end_date||"",start:r.start_time,end:r.end_time,place:r.place,area:r.area,district:r.district,type:r.type,src:r.source,url:r.source_url||"",visited:!!o.visited,folder:o.folder||""}});
+      return{id:r.id,title:r.title,date:r.event_date,endDate:r.end_date||"",start:r.start_time,end:r.end_time,place:r.place,area:r.area,district:r.district,type:r.type,src:r.source,url:r.source_url||"",visited:!!o.visited,scheduled:!!o.scheduled,folder:o.folder||""}});
     var local=state.events.filter(function(e){return !ids[e.id]&&!/^d\d+$/.test(e.id)&&!/^[0-9a-f]{8}-[0-9a-f-]{27}$/.test(e.id)});
     state.events=db.concat(local);persist();render();
     if(msg)toast(msg);
