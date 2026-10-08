@@ -180,7 +180,7 @@ dialog::backdrop{background:rgba(10,12,20,.55)}
 <script>
 (function(){
 /* 部署後把這三個值填進來，朋友打開網站就不用自己設定（anon key 設計上就是公開的） */
-var SB_URL="https://uiypxblvjueffnhlwhyi.supabase.co/rest/v1/";      /* 例如 https://xxxx.supabase.co */
+var SB_URL="https://uiypxblvjueffnhlwhyi.supabase.co";      /* 例如 https://xxxx.supabase.co */
 var SB_KEY="sb_publishable_Bn4k-ZNzPyc271UIhfdD_w_dk6baQsY";      /* Supabase 的 anon public key */
 var PROXY_URL="";   /* 例如 https://event-radar.你的帳號.workers.dev */
 var TYPES=["市集","展覽","音樂表演","美食","親子","運動","講座工作坊"];
@@ -329,7 +329,12 @@ function showPreview(r){
    '<button class="btn primary" id="btnAdd" type="button">加入清單</button></div>';
   $("btnAdd").onclick=function(){
     r.title=$("pvTitle").value||r.title;r.date=$("pvDate").value||r.date;r.place=$("pvPlace").value;r.area=$("pvArea").value;r.district=$("pvDistrict").value;r.type=$("pvType").value;
-    state.events.push(r);save();render();$("preview").innerHTML="";$("srcText").value="";toast("已加入「"+r.title+"」");
+    var done=function(){$("preview").innerHTML="";$("srcText").value=""};
+    if(!initSb()){state.events.push(r);save();render();done();toast("已加入「"+r.title+"」（僅存在這台裝置）");return}
+    SB.from("events").insert({title:r.title.slice(0,80),event_date:r.date,start_time:r.start||"",end_time:r.end||"",place:(r.place||"").slice(0,120),area:(r.area||"").slice(0,40),district:(r.district||"").slice(0,20),type:r.type,source:r.src||"貼文"}).then(function(x){
+      if(x.error){toast("新增失敗："+x.error.message);return}
+      done();loadPublic("已加入「"+r.title+"」並存到資料庫");
+    });
   };
 }
 
@@ -554,8 +559,23 @@ $("btnTheme").onclick=function(){
   var r=document.documentElement,dark=r.getAttribute("data-theme")==="dark"||(!r.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme: dark)").matches);
   r.setAttribute("data-theme",dark?"light":"dark");
 };
+/* 公開活動：從 Supabase events 表讀取 */
+function loadPublic(msg){
+  if(!initSb())return;
+  SB.from("events").select("*").order("event_date",{ascending:true}).then(function(x){
+    if(x.error||!x.data){toast("讀取資料庫失敗，先顯示本機資料");return}
+    var old={},ids={};
+    state.events.forEach(function(e){old[e.id]=e});
+    var db=x.data.map(function(r){ids[r.id]=1;var o=old[r.id]||{};
+      return{id:r.id,title:r.title,date:r.event_date,start:r.start_time,end:r.end_time,place:r.place,area:r.area,district:r.district,type:r.type,src:r.source,url:"",visited:!!o.visited,folder:o.folder||""}});
+    var local=state.events.filter(function(e){return !ids[e.id]&&!/^d\d+$/.test(e.id)});
+    state.events=db.concat(local);persist();render();
+    if(msg)toast(msg);
+  });
+}
 render();
 initSb();
+loadPublic();
 checkIncoming();
 })();
 </script>
