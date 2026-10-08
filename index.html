@@ -1,3 +1,7 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>活動雷達</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -73,6 +77,18 @@ dialog::backdrop{background:rgba(20,50,70,.5)}
 .preview{background:var(--bg);border:1px dashed var(--accent);border-radius:10px;padding:12px;margin-top:10px}
 .preview .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-block:8px}
 .preview label{font-size:.75rem;color:var(--muted);display:block}
+/* 手機：輸入框 16px 避免 iOS 聚焦時自動放大；按鈕加大好點；視窗可捲動 */
+@media(max-width:600px){
+  body{padding-inline:max(14px,env(safe-area-inset-left)) max(14px,env(safe-area-inset-right))}
+  h1{font-size:1.6rem}
+  input,select,textarea{font-size:16px!important}
+  .btn{min-height:44px}.btn.sm{min-height:40px}
+  .card select{min-height:40px}
+  .cards{grid-template-columns:1fr}
+  dialog{max-height:calc(100dvh - 32px);overflow:auto}
+  .row>.btn{flex:0 1 auto}
+}
+@media(max-width:360px){.stats{grid-template-columns:1fr 1fr}.stat b{font-size:1.4rem}}
 </style>
 
 <div class="wrap">
