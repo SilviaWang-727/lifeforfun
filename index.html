@@ -211,7 +211,7 @@ dialog::backdrop{background:rgba(20,50,70,.5)}
 /* 部署後把這三個值填進來，朋友打開網站就不用自己設定（anon key 設計上就是公開的） */
 var SB_URL="https://uiypxblvjueffnhlwhyi.supabase.co";      /* 例如 https://xxxx.supabase.co */
 var SB_KEY="sb_publishable_Bn4k-ZNzPyc271UIhfdD_w_dk6baQsY";      /* Supabase 的 anon public key */
-var PROXY_URL="";   /* 例如 https://event-radar.你的帳號.workers.dev */
+var PROXY_URL="https://event-radar.miya810727.workers.dev";   /* 例如 https://event-radar.你的帳號.workers.dev */
 var TYPES=["市集","展覽","音樂表演","美食","親子","運動","講座工作坊"];
 var AREA_KEYS={"東區":["忠孝敦化","東區","忠孝復興","頂好"],"信義商圈":["信義","101","市政府","象山"],"西門町":["西門","西寧"],"華山文創":["華山","忠孝東路一段","光華"],"公館商圈":["公館","台大","水源"],"迪化街":["迪化","大稻埕","民生西路"],"士林夜市":["士林","劍潭"],"板橋新板特區":["新板","板橋","府中"],"松菸文創":["松菸","松山文創","五分埔"],"中山雙連":["中山","雙連","赤峰"]};
 var DISTRICTS=["大安區","信義區","中山區","松山區","萬華區","士林區","板橋區","大同區","中正區","內湖區","南港區","文山區","北投區","新店區"];
@@ -537,15 +537,41 @@ function fetchPage(u){
     return [title,ld,meta("og:description")||meta("description"),body].filter(Boolean).join("\n");
   });
 }
+/* AI 分析（Cloudflare Worker + Workers AI）；失敗或額度用完時退回內建規則 */
+function smartAnalyze(text,url){
+  var local=analyze(text,url),px=proxyUrl();
+  if(!px)return Promise.resolve({r:local,ai:false});
+  var ctl=new AbortController(),tm=setTimeout(function(){ctl.abort()},20000);
+  return fetch(px.replace(/\/+$/,"")+"/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:text.slice(0,3000),today:TODAY}),signal:ctl.signal})
+   .then(function(r){clearTimeout(tm);if(!r.ok)throw 0;return r.json()})
+   .then(function(j){
+     var a=j&&j.result;if(!a||!a.title)throw 0;
+     var r=Object.assign({},local);
+     r.title=a.title;
+     if(a.date){r.date=a.date;r.endDate=a.endDate||"";if(a.start){r.start=a.start;r.end=a.end||""}}
+     if(a.place)r.place=a.place;
+     if(a.type)r.type=a.type;
+     if(a.area&&a.area!=="其他商圈")r.area=a.area;else if(local.area==="其他商圈"&&a.area)r.area=a.area;
+     if(a.district)r.district=a.district;else if(local.district==="未判斷"&&AREA_DISTRICT[r.area])r.district=AREA_DISTRICT[r.area];
+     return {r:r,ai:true};
+   }).catch(function(){clearTimeout(tm);return {r:local,ai:false}});
+}
+function analyzeAndShow(text,url,okMsg){
+  var btn=$("btnAnalyze");btn.disabled=true;btn.textContent="AI 分析中…";
+  return smartAnalyze(text,url).then(function(x){
+    showPreview(x.r);
+    toast(x.ai?(okMsg||"AI 已分析完成，請確認欄位"):"AI 暫時無法使用，已用內建規則分析");
+  }).then(function(){btn.disabled=false;btn.textContent="分析"});
+}
 $("btnAnalyze").onclick=function(){
   var t=$("srcText").value.trim(),u=$("srcUrl").value.trim();
   if(urlOnly(t)){u=t;t=""}
   if(!t&&!u){toast("請貼上貼文內容或活動網址");return}
-  if(t){showPreview(analyze(t,u));return}
+  if(t){analyzeAndShow(t,u);return}
   if(!urlOnly(u)){toast("網址格式不正確，需以 http:// 或 https:// 開頭");return}
   var btn=$("btnAnalyze");btn.disabled=true;btn.textContent="讀取網址中…";
   fetchPage(u).then(function(txt){
-    showPreview(analyze(txt,u));toast("已讀取網頁內容並分析");
+    return analyzeAndShow(txt,u,"已讀取網頁內容，AI 分析完成");
   }).catch(function(){
     var guess=textFromUrl(u);
     showPreview(analyze(guess||"未命名活動",u));
