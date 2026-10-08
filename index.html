@@ -82,7 +82,6 @@ dialog::backdrop{background:rgba(20,50,70,.5)}
     <button class="btn" id="btnTheme" type="button" aria-label="切換深淺色">◐ 主題</button>
     <button class="btn" id="btnShare" type="button">分享清單</button>
     <button class="btn" id="btnGoogle" type="button">連結 Google 帳號</button>
-    <button class="btn" id="btnAdmin" type="button">管理員登入</button>
   </div>
 </header>
 <svg class="hero" viewBox="0 0 800 230" role="img" aria-label="三位朋友在街上逛市集的插圖" preserveAspectRatio="xMidYMid slice">
@@ -179,37 +178,6 @@ dialog::backdrop{background:rgba(20,50,70,.5)}
   </div>
 </dialog>
 
-<dialog id="dlgAdmin">
-  <h2>管理員登入</h2>
-  <p class="note">只有管理員能修改、刪除公開活動。</p>
-  <label class="note" for="admEmail">Email</label>
-  <input type="email" id="admEmail" autocomplete="username">
-  <label class="note" for="admPass">密碼</label>
-  <input type="password" id="admPass" autocomplete="current-password">
-  <div class="row" style="margin-top:12px;justify-content:flex-end">
-    <button class="btn" type="button" data-close>取消</button>
-    <button class="btn primary" id="btnAdminOk" type="button">登入</button>
-  </div>
-</dialog>
-
-<dialog id="dlgEdit">
-  <h2>修改活動</h2>
-  <input type="hidden" id="edId">
-  <label class="note" for="edTitle">名稱</label><input type="text" id="edTitle" maxlength="80">
-  <label class="note" for="edDate">日期（YYYY-MM-DD）</label><input type="text" id="edDate">
-  <label class="note" for="edEndDate">結束日期（單日留空）</label><input type="text" id="edEndDate">
-  <label class="note" for="edStart">開始時間</label><input type="text" id="edStart" placeholder="14:00">
-  <label class="note" for="edEnd">結束時間</label><input type="text" id="edEnd" placeholder="20:00">
-  <label class="note" for="edPlace">地點</label><input type="text" id="edPlace" maxlength="120">
-  <label class="note" for="edArea">商圈</label><input type="text" id="edArea" maxlength="40">
-  <label class="note" for="edDistrict">行政區</label><input type="text" id="edDistrict" maxlength="20">
-  <label class="note" for="edType">類型</label><select id="edType"></select>
-  <div class="row" style="margin-top:12px;justify-content:flex-end">
-    <button class="btn" type="button" data-close>取消</button>
-    <button class="btn primary" id="btnEditOk" type="button">儲存</button>
-  </div>
-</dialog>
-
 <dialog id="dlgIncoming">
   <h2 id="inTitle"></h2>
   <ul id="inList" style="padding-left:18px;max-height:40vh;overflow:auto"></ul>
@@ -227,7 +195,6 @@ dialog::backdrop{background:rgba(20,50,70,.5)}
 /* 部署後把這三個值填進來，朋友打開網站就不用自己設定（anon key 設計上就是公開的） */
 var SB_URL="https://uiypxblvjueffnhlwhyi.supabase.co";      /* 例如 https://xxxx.supabase.co */
 var SB_KEY="sb_publishable_Bn4k-ZNzPyc271UIhfdD_w_dk6baQsY";      /* Supabase 的 anon public key */
-var ADMIN_EMAIL="silviawang@nine-yi.com";   /* 只有這個帳號能修改／刪除（資料庫端也有同樣限制） */
 var PROXY_URL="";   /* 例如 https://event-radar.你的帳號.workers.dev */
 var TYPES=["市集","展覽","音樂表演","美食","親子","運動","講座工作坊"];
 var AREA_KEYS={"東區":["忠孝敦化","東區","忠孝復興","頂好"],"信義商圈":["信義","101","市政府","象山"],"西門町":["西門","西寧"],"華山文創":["華山","忠孝東路一段","光華"],"公館商圈":["公館","台大","水源"],"迪化街":["迪化","大稻埕","民生西路"],"士林夜市":["士林","劍潭"],"板橋新板特區":["新板","板橋","府中"],"松菸文創":["松菸","松山文創","五分埔"],"中山雙連":["中山","雙連","赤峰"]};
@@ -320,7 +287,6 @@ function card(e){
     '<button class="btn sm" type="button" data-act="visit" aria-pressed="'+e.visited+'">'+(e.visited?"✓ 已去過":"標記已去過")+'</button>'+
     '<select data-act="folder" aria-label="放進資料夾">'+opts+'</select>'+
     (e.id.charAt(0)==="u"?'<button class="btn sm" type="button" data-act="del">刪除</button>':'')+
-    (isAdmin()&&/^[0-9a-f-]{36}$/.test(e.id)?'<button class="btn sm" type="button" data-act="dbedit">修改</button><button class="btn sm" type="button" data-act="dbdel">刪除</button>':'')+
    '</div></article>';
 }
 
@@ -336,10 +302,8 @@ function renderList(){
   $("list").innerHTML=order.map(function(k){return '<section class="group"><h3>'+esc(k)+' <em>'+groups[k].length+' 場</em></h3><div class="cards">'+groups[k].map(card).join("")+'</div></section>'}).join("");
 }
 function render(){renderStats();renderFilters();renderList();renderGoogle()}
-function isAdmin(){return !!(user&&user.email&&user.email.toLowerCase()===ADMIN_EMAIL)}
 function renderGoogle(){
   var b=$("btnGoogle");
-  $("btnAdmin").hidden=!!user;
   if(user){b.innerHTML='<span class="avatar">'+esc((user.email||"G").charAt(0).toUpperCase())+'</span> '+esc(user.email||"已登入")+' · 登出';$("syncNote").textContent="已登入 Google：已去過、資料夾與清單會自動同步到雲端。";return}
   b.textContent="連結 Google 帳號";$("syncNote").textContent="目前「已去過」與資料夾只存在這台裝置。連結 Google 帳號後可跨裝置同步。"
 }
@@ -499,18 +463,6 @@ document.addEventListener("click",function(ev){
     var id=t.closest(".card").getAttribute("data-id"),e=state.events.filter(function(x){return x.id===id})[0];
     if(act==="visit"){e.visited=!e.visited;save();render();toast(e.visited?"已標記為去過":"已取消標記")}
     if(act==="del"){state.events=state.events.filter(function(x){return x.id!==id});save();render()}
-    if(act==="dbedit"){
-      $("edType").innerHTML=TYPES.map(function(x){return '<option'+(x===e.type?" selected":"")+'>'+x+'</option>'}).join("");
-      $("edId").value=e.id;$("edTitle").value=e.title;$("edDate").value=e.date;$("edEndDate").value=e.endDate||"";$("edStart").value=e.start;$("edEnd").value=e.end;
-      $("edPlace").value=e.place;$("edArea").value=e.area;$("edDistrict").value=e.district;$("dlgEdit").showModal();
-    }
-    if(act==="dbdel"){
-      if(!confirm("確定要永久刪除「"+e.title+"」嗎？"))return;
-      SB.from("events").delete().eq("id",id).select().then(function(x){
-        if(x.error||!x.data||!x.data.length){toast("刪除失敗：沒有權限");return}
-        loadPublic("已刪除「"+e.title+"」");
-      });
-    }
   }
 });
 document.addEventListener("change",function(ev){
@@ -692,24 +644,6 @@ $("btnTheme").onclick=function(){
   var r=document.documentElement,dark=r.getAttribute("data-theme")==="dark"||(!r.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme: dark)").matches);
   r.setAttribute("data-theme",dark?"light":"dark");
 };
-/* 管理員：登入後可修改／刪除公開活動（權限由資料庫 RLS 強制，這裡只是顯示按鈕） */
-$("btnAdmin").onclick=function(){$("dlgAdmin").showModal()};
-$("btnAdminOk").onclick=function(){
-  if(!initSb()){toast("Supabase 套件沒有載入");return}
-  SB.auth.signInWithPassword({email:$("admEmail").value.trim(),password:$("admPass").value}).then(function(r){
-    if(r.error){toast("登入失敗："+r.error.message);return}
-    $("admPass").value="";$("dlgAdmin").close();toast("管理員已登入");
-  });
-};
-$("btnEditOk").onclick=function(){
-  var id=$("edId").value;
-  SB.from("events").update({title:$("edTitle").value.trim().slice(0,80),event_date:$("edDate").value.trim(),end_date:$("edEndDate").value.trim()||null,start_time:$("edStart").value.trim(),end_time:$("edEnd").value.trim(),place:$("edPlace").value.slice(0,120),area:$("edArea").value.slice(0,40),district:$("edDistrict").value.slice(0,20),type:$("edType").value}).eq("id",id).select().then(function(x){
-    if(x.error){toast("儲存失敗："+x.error.message);return}
-    if(!x.data||!x.data.length){toast("儲存失敗：沒有權限");return}
-    $("dlgEdit").close();loadPublic("已儲存");
-  });
-};
-
 /* 公開活動：從 Supabase events 表讀取 */
 function loadPublic(msg){
   if(!initSb())return;
