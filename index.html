@@ -168,7 +168,8 @@ dialog::backdrop{background:rgba(60,45,30,.45)}
 </div>
 
 <dialog id="dlgFolder">
-  <h2>建立資料夾</h2>
+  <h2 id="folderTitle">建立資料夾</h2>
+  <label class="note" for="folderName">資料夾名稱</label>
   <input type="text" id="folderName" placeholder="例如：週末約會、跟同事去" maxlength="20">
   <div class="row" style="margin-top:12px;justify-content:flex-end">
     <button class="btn" type="button" data-close>取消</button>
@@ -277,6 +278,9 @@ function renderFilters(){
   var h='<button class="chip" type="button" data-folder="" aria-pressed="'+(state.activeFolder===""?"true":"false")+'">全部</button>';
   state.folders.forEach(function(n){var c=state.events.filter(function(e){return e.folder===n}).length;h+='<button class="chip" type="button" data-folder="'+esc(n)+'" aria-pressed="'+(state.activeFolder===n)+'">📁 '+esc(n)+' · '+c+'</button>'});
   h+='<button class="chip" type="button" id="btnNewFolder">＋ 新資料夾</button>';
+  if(state.activeFolder&&state.folders.indexOf(state.activeFolder)>=0){
+    h+='<button class="chip" type="button" id="btnRenameFolder" aria-label="重新命名資料夾「'+esc(state.activeFolder)+'」">✎ 重新命名</button><button class="chip" type="button" id="btnDelFolder" aria-label="刪除資料夾「'+esc(state.activeFolder)+'」">🗑 刪除資料夾</button>';
+  }
   f.innerHTML=h;
 }
 
@@ -501,7 +505,18 @@ document.addEventListener("click",function(ev){
   if(t.matches&&t.matches("[data-close]")){t.closest("dialog").close();return}
   var chip=t.closest&&t.closest("[data-folder]");
   if(chip){state.activeFolder=chip.getAttribute("data-folder");save();render();return}
-  if(t.id==="btnNewFolder"){$("folderName").value="";$("dlgFolder").showModal();return}
+  if(t.id==="btnNewFolder"){folderEdit=null;$("folderTitle").textContent="建立資料夾";$("btnFolderOk").textContent="建立";$("folderName").value="";$("dlgFolder").showModal();return}
+  if(t.id==="btnRenameFolder"){
+    folderEdit=state.activeFolder;$("folderTitle").textContent="重新命名資料夾";$("btnFolderOk").textContent="儲存";
+    $("folderName").value=folderEdit;$("dlgFolder").showModal();return;
+  }
+  if(t.id==="btnDelFolder"){
+    var dn=state.activeFolder,cnt=state.events.filter(function(x){return x.folder===dn}).length;
+    if(!confirm("確定要刪除資料夾「"+dn+"」嗎？\n裡面的 "+cnt+" 場活動不會被刪除，只會移出資料夾。"))return;
+    state.folders=state.folders.filter(function(n){return n!==dn});
+    state.events.forEach(function(x){if(x.folder===dn)x.folder=""});
+    state.activeFolder="";save();render();toast("已刪除資料夾「"+dn+"」");return;
+  }
   var act=t.getAttribute&&t.getAttribute("data-act");
   if(act){
     var id=t.closest(".card").getAttribute("data-id"),e=state.events.filter(function(x){return x.id===id})[0];
@@ -616,12 +631,23 @@ $("btnProxy").onclick=function(){
   toast(v?"已儲存分析服務":"已清除，改用直接讀取");
 };
 $("srcUrl").addEventListener("keydown",function(e){if(e.key==="Enter")$("btnAnalyze").click()});
+var folderEdit=null;
 $("btnFolderOk").onclick=function(){
   var n=$("folderName").value.trim();
   if(!n){toast("請輸入資料夾名稱");return}
+  if(folderEdit!==null){
+    if(n===folderEdit){$("dlgFolder").close();return}
+    if(state.folders.indexOf(n)>=0){toast("已有同名資料夾");return}
+    var old=folderEdit;
+    state.folders=state.folders.map(function(x){return x===old?n:x});
+    state.events.forEach(function(x){if(x.folder===old)x.folder=n});
+    if(state.activeFolder===old)state.activeFolder=n;
+    folderEdit=null;save();$("dlgFolder").close();render();toast("已改名為「"+n+"」");return;
+  }
   if(state.folders.indexOf(n)>=0){toast("已有同名資料夾");return}
   state.folders.push(n);save();$("dlgFolder").close();render();toast("已建立「"+n+"」");
 };
+$("folderName").addEventListener("keydown",function(e){if(e.key==="Enter")$("btnFolderOk").click()});
 $("btnShare").onclick=function(){renderShare();$("dlgShare").showModal()};
 $("shareScope").onchange=renderShare;
 $("btnCopyCode").onclick=function(){copy($("shareCode").value,"已複製分享碼")};
