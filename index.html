@@ -202,6 +202,7 @@ dialog::backdrop{background:rgba(20,50,70,.5)}
   <input type="hidden" id="edId">
   <label class="note" for="edTitle">名稱</label><input type="text" id="edTitle" maxlength="80">
   <label class="note" for="edDate">日期（YYYY-MM-DD）</label><input type="text" id="edDate">
+  <label class="note" for="edEndDate">結束日期（單日留空）</label><input type="text" id="edEndDate">
   <label class="note" for="edStart">開始時間</label><input type="text" id="edStart" placeholder="14:00">
   <label class="note" for="edEnd">結束時間</label><input type="text" id="edEnd" placeholder="20:00">
   <label class="note" for="edPlace">地點</label><input type="text" id="edPlace" maxlength="120">
@@ -266,13 +267,14 @@ function $(id){return document.getElementById(id)}
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function toast(t){var el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){el.hidden=true},2200)}
 function wd(d){return "日一二三四五六"[new Date(d+"T00:00:00").getDay()]}
-function fmtDate(e){var p=e.date.split("-");return Number(p[1])+"/"+Number(p[2])+"（"+wd(e.date)+"）"+(e.start?" "+e.start+(e.end?"–"+e.end:""):"")}
+function fmtD(d){var p=d.split("-");return Number(p[1])+"/"+Number(p[2])+"（"+wd(d)+"）"}
+function fmtDate(e){return fmtD(e.date)+(e.endDate&&e.endDate>e.date?" ~ "+fmtD(e.endDate):"")+(e.start?" "+e.start+(e.end?"–"+e.end:""):"")}
 var TODAY="2026-10-08";
 
 /* 數字摘要 */
 function renderStats(){
-  var ev=state.events,up=ev.filter(function(e){return e.date>=TODAY&&!e.visited}).length;
-  var thisM=ev.filter(function(e){return e.date.slice(0,7)==="2026-10"&&e.date>=TODAY}).length;
+  var ev=state.events,up=ev.filter(function(e){return endOf(e)>=TODAY&&!e.visited}).length;
+  var thisM=ev.filter(function(e){return e.date.slice(0,7)==="2026-10"&&endOf(e)>=TODAY}).length;
   var vis=ev.filter(function(e){return e.visited}).length;
   var areas={};ev.forEach(function(e){areas[e.area]=(areas[e.area]||0)+1});
   var top=Object.keys(areas).sort(function(a,b){return areas[b]-areas[a]})[0]||"—";
@@ -306,14 +308,14 @@ function filtered(){
 
 function mapUrl(e){return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(e.place+" "+e.district)}
 function calUrl(e){
-  var d=e.date.replace(/-/g,""),s=(e.start||"09:00").replace(":","")+"00",en=(e.end||e.start||"10:00").replace(":","")+"00";
-  return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(e.title)+"&dates="+d+"T"+s+"/"+d+"T"+en+"&location="+encodeURIComponent(e.place)+"&details="+encodeURIComponent("來源："+e.src+(e.url?" "+e.url:""));
+  var d=e.date.replace(/-/g,""),d2=endOf(e).replace(/-/g,""),s=(e.start||"09:00").replace(":","")+"00",en=(e.end||e.start||"10:00").replace(":","")+"00";
+  return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(e.title)+"&dates="+d+"T"+s+"/"+d2+"T"+en+"&location="+encodeURIComponent(e.place)+"&details="+encodeURIComponent("來源："+e.src+(e.url?" "+e.url:""));
 }
 
 function card(e){
   var opts='<option value="">不放資料夾</option>'+state.folders.map(function(n){return '<option'+(e.folder===n?" selected":"")+'>'+esc(n)+'</option>'}).join("");
   return '<article class="card'+(e.visited?" visited":"")+'" data-id="'+e.id+'">'+'<div class="art">'+(TYPE_ART[e.type]||"")+'</div>'+
-   '<div class="date">'+fmtDate(e)+(e.date<TODAY?" · 已結束":"")+'</div>'+
+   '<div class="date">'+fmtDate(e)+(endOf(e)<TODAY?" · 已結束":"")+'</div>'+
    '<h4>'+esc(e.title)+'</h4>'+
    '<div class="meta">📍 '+esc(e.place)+'</div>'+
    '<div class="tags"><span class="tag type">'+esc(e.type)+'</span><span class="tag">'+esc(e.area)+'</span><span class="tag">'+esc(e.district)+'</span><span class="tag src">'+esc(e.src)+'</span></div>'+
@@ -403,12 +405,37 @@ function guessPlace(lines,title){
   }
   return "";
 }
+/* 日期：支援單日與區間（10/1~10/2、10/1~2、2026/10/1-2026/10/2、10月1日至10月2日，或分散在不同行的多個日期） */
+function iso(y,mo,d){return y+"-"+("0"+mo).slice(-2)+"-"+("0"+d).slice(-2)}
+function okMD(mo,d){return mo>=1&&mo<=12&&d>=1&&d<=31}
+function parseDates(text){
+  var R=/(?:(\d{4})[\/\-.年])?(\d{1,2})[\/月](\d{1,2})日?\s*(?:[（(][^）)]*[）)])?\s*[-–~～〜至到]\s*(?:(?:(\d{4})[\/\-.年])?(\d{1,2})[\/月])?(\d{1,2})(?![\d:：])/;
+  var m=text.match(R),y1,mo1,d1,y2,mo2,d2,a,b;
+  if(m){
+    y1=+(m[1]||2026);mo1=+m[2];d1=+m[3];mo2=m[5]?+m[5]:mo1;d2=+m[6];y2=+(m[4]||y1);
+    if(!m[4]&&mo2<mo1)y2=y1+1;
+    if(okMD(mo1,d1)&&okMD(mo2,d2)){
+      a=iso(y1,mo1,d1);b=iso(y2,mo2,d2);
+      if(b>a)return {date:a,endDate:b};
+      return {date:a,endDate:""};
+    }
+  }
+  var S=/(?:(\d{4})[\/\-.年])?(\d{1,2})[\/月](\d{1,2})/g,list=[];
+  while((m=S.exec(text))){
+    if(!okMD(+m[2],+m[3]))continue;
+    a=iso(+(m[1]||2026),+m[2],+m[3]);if(list.indexOf(a)<0)list.push(a);
+  }
+  if(!list.length)return {date:TODAY,endDate:""};
+  var lo=list.slice().sort()[0],hi=list.slice().sort()[list.length-1];
+  var span=(new Date(hi+"T00:00:00")-new Date(lo+"T00:00:00"))/86400000;
+  if(list.length>=2&&span>0&&span<=60)return {date:lo,endDate:hi};
+  return {date:list[0],endDate:""};
+}
+function endOf(e){return e.endDate&&e.endDate>e.date?e.endDate:e.date}
 function analyze(text,url){
   var lines=text.split(/\n/).map(function(l){return l.trim()}).filter(Boolean);
   var title=guessTitle(lines),place0=guessPlace(lines,title);
-  var m=text.match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})/),y=2026,mo,d;
-  if(m){y=+m[1];mo=+m[2];d=+m[3]}else{m=text.match(/(\d{1,2})[\/月](\d{1,2})/);if(m){mo=+m[1];d=+m[2]}}
-  var date=(mo&&d)?y+"-"+("0"+mo).slice(-2)+"-"+("0"+d).slice(-2):TODAY;
+  var dr=parseDates(text),date=dr.date,endDate=dr.endDate;
   var tm=text.match(/(\d{1,2}):(\d{2})\s*[-–~～〜至到]\s*(\d{1,2}):(\d{2})/),start="",end="";
   if(tm){start=("0"+tm[1]).slice(-2)+":"+tm[2];end=("0"+tm[3]).slice(-2)+":"+tm[4]}
   else{var t1=text.match(/(\d{1,2}):(\d{2})/);if(t1)start=("0"+t1[1]).slice(-2)+":"+t1[2]}
@@ -422,23 +449,26 @@ function analyze(text,url){
   var type="市集",found=false;
   for(k in TYPE_KEYS){if(TYPE_KEYS[k].some(function(w){return text.indexOf(w)>=0})){type=k;found=true;break}}
   var src=/instagram\.com/.test(url)?"Instagram":/facebook\.com|fb\.com/.test(url)?"Facebook":/threads\.net/.test(url)?"Threads":url?"網站":"貼文";
-  return {id:"u"+Date.now(),title:title,date:date,start:start,end:end,place:place||"地點未標示",area:area,district:district,type:type,src:src,url:url,visited:false,folder:""};
+  return {id:"u"+Date.now(),title:title,date:date,endDate:endDate,start:start,end:end,place:place||"地點未標示",area:area,district:district,type:type,src:src,url:url,visited:false,folder:""};
 }
 function showPreview(r){
   var tOpts=TYPES.map(function(t){return '<option'+(t===r.type?" selected":"")+'>'+t+'</option>'}).join("");
   $("preview").innerHTML='<div class="preview"><strong>分析結果（可修改）</strong><div class="grid">'+
    '<div><label for="pvTitle">名稱</label><input type="text" id="pvTitle" value="'+esc(r.title)+'"></div>'+
-   '<div><label for="pvDate">日期</label><input type="text" id="pvDate" value="'+r.date+'"></div>'+
+   '<div><label for="pvDate">日期（開始）</label><input type="text" id="pvDate" value="'+r.date+'"></div>'+
+   '<div><label for="pvEndDate">結束日期（單日留空）</label><input type="text" id="pvEndDate" value="'+(r.endDate||"")+'" placeholder="YYYY-MM-DD"></div>'+
    '<div><label for="pvPlace">地點</label><input type="text" id="pvPlace" value="'+esc(r.place)+'"></div>'+
    '<div><label for="pvArea">商圈</label><input type="text" id="pvArea" value="'+esc(r.area)+'"></div>'+
    '<div><label for="pvDistrict">行政區</label><input type="text" id="pvDistrict" value="'+esc(r.district)+'"></div>'+
    '<div><label for="pvType">類型</label><select id="pvType">'+tOpts+'</select></div></div>'+
    '<button class="btn primary" id="btnAdd" type="button">加入清單</button></div>';
   $("btnAdd").onclick=function(){
-    r.title=$("pvTitle").value||r.title;r.date=$("pvDate").value||r.date;r.place=$("pvPlace").value;r.area=$("pvArea").value;r.district=$("pvDistrict").value;r.type=$("pvType").value;
+    r.title=$("pvTitle").value||r.title;r.date=$("pvDate").value||r.date;r.endDate=/^\d{4}-\d{2}-\d{2}$/.test($("pvEndDate").value.trim())&&$("pvEndDate").value.trim()>r.date?$("pvEndDate").value.trim():"";r.place=$("pvPlace").value;r.area=$("pvArea").value;r.district=$("pvDistrict").value;r.type=$("pvType").value;
     var done=function(){$("preview").innerHTML="";$("srcText").value=""};
     if(!initSb()){state.events.push(r);save();render();done();toast("已加入「"+r.title+"」（僅存在這台裝置）");return}
-    SB.from("events").insert({title:r.title.slice(0,80),event_date:r.date,start_time:r.start||"",end_time:r.end||"",place:(r.place||"").slice(0,120),area:(r.area||"").slice(0,40),district:(r.district||"").slice(0,20),type:r.type,source:r.src||"貼文"}).then(function(x){
+    var row={title:r.title.slice(0,80),event_date:r.date,start_time:r.start||"",end_time:r.end||"",place:(r.place||"").slice(0,120),area:(r.area||"").slice(0,40),district:(r.district||"").slice(0,20),type:r.type,source:r.src||"貼文"};
+    if(r.endDate)row.end_date=r.endDate;
+    SB.from("events").insert(row).then(function(x){
       if(x.error){toast("新增失敗："+x.error.message);return}
       done();loadPublic("已加入「"+r.title+"」並存到資料庫");
     });
@@ -456,7 +486,7 @@ function renderShare(){
   var s=$("shareScope"),cur=s.value||"all";
   s.innerHTML='<option value="all">全部活動</option><option value="todo">還沒去的活動</option>'+state.folders.map(function(n){return '<option value="'+esc(n)+'">資料夾：'+esc(n)+'</option>'}).join("");
   s.value=cur;
-  $("shareCode").value=encode(shareList().map(function(e){return {title:e.title,date:e.date,start:e.start,end:e.end,place:e.place,area:e.area,district:e.district,type:e.type,src:e.src}}));
+  $("shareCode").value=encode(shareList().map(function(e){return {title:e.title,date:e.date,endDate:e.endDate||"",start:e.start,end:e.end,place:e.place,area:e.area,district:e.district,type:e.type,src:e.src}}));
 }
 function copy(text,msg){
   function fb(){var t=$("shareCode");t.value=text;t.select();toast("請手動複製（Ctrl/⌘+C）")}
@@ -477,7 +507,7 @@ document.addEventListener("click",function(ev){
     if(act==="del"){state.events=state.events.filter(function(x){return x.id!==id});save();render()}
     if(act==="dbedit"){
       $("edType").innerHTML=TYPES.map(function(x){return '<option'+(x===e.type?" selected":"")+'>'+x+'</option>'}).join("");
-      $("edId").value=e.id;$("edTitle").value=e.title;$("edDate").value=e.date;$("edStart").value=e.start;$("edEnd").value=e.end;
+      $("edId").value=e.id;$("edTitle").value=e.title;$("edDate").value=e.date;$("edEndDate").value=e.endDate||"";$("edStart").value=e.start;$("edEnd").value=e.end;
       $("edPlace").value=e.place;$("edArea").value=e.area;$("edDistrict").value=e.district;$("dlgEdit").showModal();
     }
     if(act==="dbdel"){
@@ -585,7 +615,7 @@ function importList(arr){
   arr.forEach(function(r){
     if(!r.title||!r.date)return;
     if(state.events.some(function(e){return e.title===r.title&&e.date===r.date}))return;
-    state.events.push({id:"u"+Date.now()+n,title:String(r.title),date:String(r.date),start:r.start||"",end:r.end||"",place:String(r.place||""),area:String(r.area||"其他商圈"),district:String(r.district||"未判斷"),type:TYPES.indexOf(r.type)>=0?r.type:"市集",src:"朋友分享",url:"",visited:false,folder:""});n++;
+    state.events.push({id:"u"+Date.now()+n,title:String(r.title),date:String(r.date),endDate:String(r.endDate||""),start:r.start||"",end:r.end||"",place:String(r.place||""),area:String(r.area||"其他商圈"),district:String(r.district||"未判斷"),type:TYPES.indexOf(r.type)>=0?r.type:"市集",src:"朋友分享",url:"",visited:false,folder:""});n++;
   });
   save();render();return n;
 }
@@ -632,7 +662,7 @@ function randCode(){
 }
 $("btnMakeLink").onclick=function(){
   if(!initSb()||!user){toast("請先連結 Google 帳號，才能建立分享連結");return}
-  var list=shareList().map(function(e){return {title:e.title,date:e.date,start:e.start,end:e.end,place:e.place,area:e.area,district:e.district,type:e.type,src:e.src}});
+  var list=shareList().map(function(e){return {title:e.title,date:e.date,endDate:e.endDate||"",start:e.start,end:e.end,place:e.place,area:e.area,district:e.district,type:e.type,src:e.src}});
   if(!list.length){toast("這個範圍內沒有活動");return}
   var code=randCode(),name=$("shareScope").options[$("shareScope").selectedIndex].text;
   SB.from("shares").insert({code:code,name:name,events:list}).then(function(r){
@@ -689,7 +719,7 @@ $("btnAdminOk").onclick=function(){
 };
 $("btnEditOk").onclick=function(){
   var id=$("edId").value;
-  SB.from("events").update({title:$("edTitle").value.trim().slice(0,80),event_date:$("edDate").value.trim(),start_time:$("edStart").value.trim(),end_time:$("edEnd").value.trim(),place:$("edPlace").value.slice(0,120),area:$("edArea").value.slice(0,40),district:$("edDistrict").value.slice(0,20),type:$("edType").value}).eq("id",id).select().then(function(x){
+  SB.from("events").update({title:$("edTitle").value.trim().slice(0,80),event_date:$("edDate").value.trim(),end_date:$("edEndDate").value.trim()||null,start_time:$("edStart").value.trim(),end_time:$("edEnd").value.trim(),place:$("edPlace").value.slice(0,120),area:$("edArea").value.slice(0,40),district:$("edDistrict").value.slice(0,20),type:$("edType").value}).eq("id",id).select().then(function(x){
     if(x.error){toast("儲存失敗："+x.error.message);return}
     if(!x.data||!x.data.length){toast("儲存失敗：沒有權限");return}
     $("dlgEdit").close();loadPublic("已儲存");
@@ -704,7 +734,7 @@ function loadPublic(msg){
     var old={},ids={};
     state.events.forEach(function(e){old[e.id]=e});
     var db=x.data.map(function(r){ids[r.id]=1;var o=old[r.id]||{};
-      return{id:r.id,title:r.title,date:r.event_date,start:r.start_time,end:r.end_time,place:r.place,area:r.area,district:r.district,type:r.type,src:r.source,url:"",visited:!!o.visited,folder:o.folder||""}});
+      return{id:r.id,title:r.title,date:r.event_date,endDate:r.end_date||"",start:r.start_time,end:r.end_time,place:r.place,area:r.area,district:r.district,type:r.type,src:r.source,url:"",visited:!!o.visited,folder:o.folder||""}});
     var local=state.events.filter(function(e){return !ids[e.id]&&!/^d\d+$/.test(e.id)&&!/^[0-9a-f]{8}-[0-9a-f-]{27}$/.test(e.id)});
     state.events=db.concat(local);persist();render();
     if(msg)toast(msg);
