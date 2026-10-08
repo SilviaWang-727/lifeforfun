@@ -46,8 +46,9 @@ h2{font-size:1.05rem;margin:0 0 10px;text-wrap:balance}
 .panel details>summary{cursor:pointer;font-weight:700}
 textarea,input[type=text],input[type=search],input[type=email],input[type=password],select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:8px 12px;min-height:38px}
 textarea{min-height:110px;resize:vertical}
-.filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px}
-@media(max-width:700px){.filters{grid-template-columns:1fr 1fr}.filters .grow{grid-column:1/-1}}
+.filters{display:grid;grid-template-columns:2fr repeat(4,1fr);gap:8px}
+.filters .grow2{grid-column:1/-1;max-width:260px}
+@media(max-width:900px){.filters{grid-template-columns:1fr 1fr}.filters .grow{grid-column:1/-1}.filters .grow2{max-width:none}}
 .folders{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
 .chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:4px 12px;font-size:.85rem}
 .chip[data-folder]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
@@ -157,12 +158,14 @@ dialog::backdrop{background:rgba(60,45,30,.45)}
     <div class="grow"><input type="search" id="q" placeholder="搜尋活動名稱、地點、商圈…" aria-label="搜尋"></div>
     <select id="fType" aria-label="類型"></select>
     <select id="fMonth" aria-label="月份"></select>
-    <select id="fGroup" aria-label="分組方式">
-      <option value="area">依商圈分組</option>
-      <option value="district">依行政區分組</option>
-      <option value="folder">依我的資料夾分組</option>
+    <select id="fArea" aria-label="商圈"></select>
+    <select id="fDistrict" aria-label="行政區"></select>
+    <div class="grow2"><select id="fGroup" aria-label="分組方式">
       <option value="month">依月份分組</option>
-    </select>
+      <option value="area" selected>依商圈分組</option>
+      <option value="district">依行政區分組</option>
+      <option value="folder">依資料夾分組</option>
+    </select></div>
   </div>
   <div class="folders" id="folders" aria-label="資料夾"></div>
   <div class="row" style="margin-top:10px">
@@ -286,6 +289,10 @@ function renderFilters(){
   var ts=$("fType"),cur=ts.value;ts.innerHTML='<option value="">全部類型</option>'+TYPES.map(function(t){return '<option>'+t+'</option>'}).join("");ts.value=cur;
   var ms=$("fMonth"),cm=ms.value,months={};state.events.forEach(function(e){months[e.date.slice(0,7)]=1});
   ms.innerHTML='<option value="">全部月份</option>'+Object.keys(months).sort().map(function(m){return '<option value="'+m+'">'+m.replace("-","年")+'月</option>'}).join("");ms.value=cm;
+  var as=$("fArea"),ca=as.value,areas={},ds=$("fDistrict"),cd=ds.value,dists={};
+  state.events.forEach(function(e){if(e.area)areas[e.area]=1;if(e.district)dists[e.district]=1});
+  as.innerHTML='<option value="">全部商圈</option>'+Object.keys(areas).sort().map(function(a){return '<option>'+esc(a)+'</option>'}).join("");as.value=ca;
+  ds.innerHTML='<option value="">全部行政區</option>'+Object.keys(dists).sort().map(function(d){return '<option>'+esc(d)+'</option>'}).join("");ds.value=cd;
   var f=$("folders");
   var h='<button class="chip" type="button" data-folder="" aria-pressed="'+(state.activeFolder===""?"true":"false")+'">全部</button>';
   state.folders.forEach(function(n){var c=state.events.filter(function(e){return e.folder===n}).length;h+='<button class="chip" type="button" data-folder="'+esc(n)+'" aria-pressed="'+(state.activeFolder===n)+'">📁 '+esc(n)+' · '+c+'</button>'});
@@ -299,6 +306,8 @@ function filtered(){
   return state.events.filter(function(e){
     if(t&&e.type!==t)return false;
     if(m&&e.date.slice(0,7)!==m)return false;
+    if($("fArea").value&&e.area!==$("fArea").value)return false;
+    if($("fDistrict").value&&e.district!==$("fDistrict").value)return false;
     if(state.activeFolder&&e.folder!==state.activeFolder)return false;
     if(hv&&e.visited)return false;
     if(ov&&!e.visited)return false;
@@ -546,7 +555,7 @@ document.addEventListener("change",function(ev){
     state.events.forEach(function(e){if(e.id===id)e.folder=t.value});save();render();toast(t.value?"已放進「"+t.value+"」":"已移出資料夾");
   }
 });
-["q","fType","fMonth","fGroup","fHideVisited","fOnlyVisited"].forEach(function(id){$(id).addEventListener("input",renderList)});
+["q","fType","fMonth","fArea","fDistrict","fGroup","fHideVisited","fOnlyVisited"].forEach(function(id){$(id).addEventListener("input",renderList)});
 $("fOnlyVisited").addEventListener("change",function(){if(this.checked)$("fHideVisited").checked=false;renderList()});
 $("fHideVisited").addEventListener("change",function(){if(this.checked)$("fOnlyVisited").checked=false;renderList()});
 $("btnSample").onclick=function(){$("srcText").value=SAMPLE;$("srcUrl").value="https://www.instagram.com/p/demo"};
