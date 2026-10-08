@@ -1,0 +1,561 @@
+<title>活動雷達</title>
+<style>
+/* 版面：頂部工具列 → 數字摘要 → 貼文分析 → 篩選列 → 依商圈/行政區/資料夾分組的活動卡片 */
+:root{
+  --bg:#f3f4f7; --surface:#ffffff; --fg:#1d2233; --muted:#667087; --line:#dfe2ea;
+  --accent:#2c3e9e; --accent-fg:#ffffff; --accent-soft:#e6e9fa;
+  --warm:#c9540d; --warm-soft:#fdeadd; --ok:#17784f; --ok-soft:#dcf3e8;
+  --font:"Noto Sans TC","PingFang TC","Microsoft JhengHei","Heiti TC",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12151f; --surface:#1b2030; --fg:#e8ebf5; --muted:#9aa3bb; --line:#2c3347;
+  --accent:#8c9cff; --accent-fg:#10142a; --accent-soft:#272d52;
+  --warm:#ff9a5c; --warm-soft:#3a2518; --ok:#5fd29b; --ok-soft:#173528; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12151f; --surface:#1b2030; --fg:#e8ebf5; --muted:#9aa3bb; --line:#2c3347;
+  --accent:#8c9cff; --accent-fg:#10142a; --accent-soft:#272d52;
+  --warm:#ff9a5c; --warm-soft:#3a2518; --ok:#5fd29b; --ok-soft:#173528; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 var(--font);padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:1040px;margin-inline:auto}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding-block:20px 8px}
+h1{font-size:1.5rem;margin:0;letter-spacing:.02em}
+h1 small{display:block;font-size:.8rem;font-weight:400;color:var(--muted);letter-spacing:0}
+h2{font-size:1.05rem;margin:0 0 10px;text-wrap:balance}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;min-height:38px;text-decoration:none;color:var(--fg);display:inline-flex;align-items:center;gap:6px;font-size:.9rem}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.sm{min-height:32px;padding:4px 10px;font-size:.82rem}
+.btn[aria-pressed="true"]{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.avatar{width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:inline-grid;place-items:center;font-size:.8rem;font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-block:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.stat b{display:block;font-size:1.7rem;line-height:1.2;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:.82rem}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;margin-block:14px}
+.panel details>summary{cursor:pointer;font-weight:700}
+textarea,input[type=text],input[type=search],select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:38px}
+textarea{min-height:110px;resize:vertical}
+.filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px}
+@media(max-width:700px){.filters{grid-template-columns:1fr 1fr}.filters .grow{grid-column:1/-1}}
+.folders{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:4px 12px;font-size:.85rem}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.group h3{font-size:.95rem;margin:22px 0 8px;display:flex;gap:8px;align-items:center;color:var(--muted)}
+.group h3 em{font-style:normal;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:0 9px;font-size:.78rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card.visited{opacity:.78}
+.card h4{margin:0;font-size:1rem;line-height:1.4;overflow-wrap:anywhere}
+.date{font-weight:700;font-variant-numeric:tabular-nums;color:var(--warm)}
+.meta{color:var(--muted);font-size:.85rem;overflow-wrap:anywhere}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-size:.75rem;border-radius:6px;padding:1px 8px;background:var(--accent-soft);color:var(--accent)}
+.tag.type{background:var(--warm-soft);color:var(--warm)}
+.tag.src{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.card select{min-height:32px;padding:3px 8px;font-size:.82rem;width:auto;max-width:100%}
+.empty{text-align:center;color:var(--muted);padding:36px 0}
+.note{font-size:.8rem;color:var(--muted)}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);width:min(560px,calc(100vw - 32px));padding:18px}
+dialog::backdrop{background:rgba(10,12,20,.55)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:.88rem;z-index:20;max-width:calc(100vw - 32px)}
+.preview{background:var(--bg);border:1px dashed var(--accent);border-radius:10px;padding:12px;margin-top:10px}
+.preview .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-block:8px}
+.preview label{font-size:.75rem;color:var(--muted);display:block}
+</style>
+
+<div class="wrap">
+<header>
+  <h1>活動雷達<small>把貼文與網頁上的活動，整理成一份看得懂、約得到的清單</small></h1>
+  <div class="row">
+    <button class="btn" id="btnTheme" type="button" aria-label="切換深淺色">◐ 主題</button>
+    <button class="btn" id="btnShare" type="button">分享清單</button>
+    <button class="btn" id="btnGoogle" type="button">連結 Google 帳號</button>
+  </div>
+</header>
+<p class="note" id="syncNote">目前資料只存在這台裝置。連結 Google 帳號後可跨裝置同步（此頁為示範，未真的連到 Google）。</p>
+
+<section class="stats" id="stats" aria-label="摘要"></section>
+
+<section class="panel">
+  <details id="analyze">
+    <summary>＋ 貼上社群貼文或網站內容，自動分析</summary>
+    <p class="note">貼上貼文文字，或只貼一個活動網址，系統會抓出名稱、日期、地點，並自動判斷行政區、商圈與類型。社群平台多半擋住直接讀取，網址分析可能只能判斷來源，這時改貼文字最準。</p>
+    <textarea id="srcText" placeholder="貼上貼文文字…"></textarea>
+    <div class="row" style="margin-top:8px">
+      <input type="text" id="srcUrl" placeholder="貼上活動網址，直接分析（或當作來源網址）" style="flex:1;min-width:200px;width:auto">
+      <button class="btn" id="btnSample" type="button">帶入範例貼文</button>
+      <button class="btn primary" id="btnAnalyze" type="button">分析</button>
+    </div>
+    <details style="margin-top:10px"><summary class="note">進階：設定網址分析服務（讓任何網址都能讀取）</summary>
+      <p class="note">填入你部署好的 worker.js 網址，之後貼任何網址都會透過它讀取。留空則只能讀允許跨站存取的網站。</p>
+      <div class="row"><input type="text" id="proxyInput" placeholder="https://event-radar.你的帳號.workers.dev" style="flex:1;min-width:200px;width:auto"><button class="btn" id="btnProxy" type="button">儲存</button></div>
+    </details>
+    <div id="preview"></div>
+  </details>
+</section>
+
+<section class="panel">
+  <div class="filters">
+    <div class="grow"><input type="search" id="q" placeholder="搜尋活動名稱、地點、商圈…" aria-label="搜尋"></div>
+    <select id="fType" aria-label="類型"></select>
+    <select id="fMonth" aria-label="月份"></select>
+    <select id="fGroup" aria-label="分組方式">
+      <option value="area">依商圈分組</option>
+      <option value="district">依行政區分組</option>
+      <option value="folder">依我的資料夾分組</option>
+      <option value="month">依月份分組</option>
+    </select>
+  </div>
+  <div class="folders" id="folders" aria-label="資料夾"></div>
+  <div class="row" style="margin-top:10px">
+    <label class="row note"><input type="checkbox" id="fHideVisited"> 隱藏已去過</label>
+    <label class="row note"><input type="checkbox" id="fOnlyVisited"> 只看已去過</label>
+  </div>
+</section>
+
+<main id="list"></main>
+</div>
+
+<dialog id="dlgFolder">
+  <h2>建立資料夾</h2>
+  <input type="text" id="folderName" placeholder="例如：週末約會、跟同事去" maxlength="20">
+  <div class="row" style="margin-top:12px;justify-content:flex-end">
+    <button class="btn" type="button" data-close>取消</button>
+    <button class="btn primary" id="btnFolderOk" type="button">建立</button>
+  </div>
+</dialog>
+
+<dialog id="dlgShare">
+  <h2>分享清單給朋友</h2>
+  <p class="note">選擇要分享的範圍。登入 Google 後可建立分享連結，朋友打開就能看並加入；沒登入也能用下方分享碼。</p>
+  <select id="shareScope" aria-label="分享範圍"></select>
+  <div class="row" style="margin-block:8px">
+    <button class="btn primary" id="btnMakeLink" type="button">建立分享連結</button>
+    <input type="text" id="shareLink" readonly placeholder="連結會顯示在這裡" aria-label="分享連結" style="flex:1;min-width:160px;width:auto">
+  </div>
+  <label class="note" for="shareCode">分享碼</label>
+  <textarea id="shareCode" readonly style="min-height:90px;font-size:.8rem"></textarea>
+  <div class="row" style="margin-top:8px"><button class="btn primary" id="btnCopyCode" type="button">複製分享碼</button><button class="btn" id="btnCopyText" type="button">複製成文字清單</button></div>
+  <hr style="border:0;border-top:1px solid var(--line);margin-block:16px">
+  <h2>匯入朋友的清單</h2>
+  <textarea id="importCode" placeholder="貼上朋友給你的分享碼" style="min-height:70px"></textarea>
+  <div class="row" style="margin-top:8px;justify-content:space-between">
+    <button class="btn primary" id="btnImport" type="button">匯入</button>
+    <button class="btn" type="button" data-close>關閉</button>
+  </div>
+</dialog>
+
+<dialog id="dlgGoogle">
+  <h2>連結 Google 帳號</h2>
+  <p class="note">登入後，已去過標記、資料夾與清單會同步到雲端，換手機或電腦也能看到，也能建立分享連結。需要先建立 Supabase 專案（步驟見部署說明），並用網站網址（https）開啟。</p>
+  <label class="note" for="sbUrl">Supabase 專案網址</label>
+  <input type="text" id="sbUrl" placeholder="https://xxxx.supabase.co">
+  <label class="note" for="sbKey">Supabase anon public key</label>
+  <input type="text" id="sbKey" placeholder="eyJ…">
+  <div class="row" style="margin-top:12px;justify-content:flex-end">
+    <button class="btn" type="button" data-close>取消</button>
+    <button class="btn" id="btnGoogleOk" type="button">先用示範模式</button>
+    <button class="btn primary" id="btnGoogleLogin" type="button">以 Google 登入</button>
+  </div>
+</dialog>
+
+<dialog id="dlgIncoming">
+  <h2 id="inTitle"></h2>
+  <ul id="inList" style="padding-left:18px;max-height:40vh;overflow:auto"></ul>
+  <div class="row" style="margin-top:12px;justify-content:flex-end">
+    <button class="btn" type="button" data-close>先不要</button>
+    <button class="btn primary" id="btnTakeIn" type="button">加入我的清單</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+(function(){
+/* 部署後把這三個值填進來，朋友打開網站就不用自己設定（anon key 設計上就是公開的） */
+var SB_URL="https://uiypxblvjueffnhlwhyi.supabase.co/rest/v1/";      /* 例如 https://xxxx.supabase.co */
+var SB_KEY="sb_publishable_Bn4k-ZNzPyc271UIhfdD_w_dk6baQsY";      /* Supabase 的 anon public key */
+var PROXY_URL="";   /* 例如 https://event-radar.你的帳號.workers.dev */
+var TYPES=["市集","展覽","音樂表演","美食","親子","運動","講座工作坊"];
+var AREA_KEYS={"東區":["忠孝敦化","東區","忠孝復興","頂好"],"信義商圈":["信義","101","市政府","象山"],"西門町":["西門","西寧"],"華山文創":["華山","忠孝東路一段","光華"],"公館商圈":["公館","台大","水源"],"迪化街":["迪化","大稻埕","民生西路"],"士林夜市":["士林","劍潭"],"板橋新板特區":["新板","板橋","府中"],"松菸文創":["松菸","松山文創","五分埔"],"中山雙連":["中山","雙連","赤峰"]};
+var DISTRICTS=["大安區","信義區","中山區","松山區","萬華區","士林區","板橋區","大同區","中正區","內湖區","南港區","文山區","北投區","新店區"];
+var AREA_DISTRICT={"東區":"大安區","信義商圈":"信義區","西門町":"萬華區","華山文創":"中正區","公館商圈":"中正區","迪化街":"大同區","士林夜市":"士林區","板橋新板特區":"板橋區","松菸文創":"信義區","中山雙連":"中山區"};
+var TYPE_KEYS={"市集":["市集","市場","擺攤","手作"],"展覽":["展","特展","策展","藝術"],"音樂表演":["演唱","音樂","live","Live","音樂節","演出","樂團"],"美食":["美食","餐","啤酒","咖啡","甜點","品酒"],"親子":["親子","兒童","小朋友","家庭"],"運動":["路跑","跑","單車","瑜珈","運動","登山"],"講座工作坊":["講座","工作坊","課程","分享會","論壇"]};
+
+var DEMO=[
+ ["d1","秋季手作市集","2026-10-17","11:00","19:00","華山1914文創園區 中4館","華山文創","中正區","市集","Instagram"],
+ ["d2","光影裝置展：城市夜行","2026-10-10","10:00","21:00","松山文創園區 2號倉庫","松菸文創","信義區","展覽","網站"],
+ ["d3","獨立樂團週末小夜場","2026-10-24","19:30","22:00","大安區忠孝敦化 Live House","東區","大安區","音樂表演","Facebook"],
+ ["d4","迪化街年貨前哨 · 老店試吃","2026-11-07","10:00","17:00","迪化街一段 霞海城隍廟前","迪化街","大同區","美食","Threads"],
+ ["d5","親子環保工作坊","2026-10-18","14:00","16:30","公館商圈 水源市場二樓","公館商圈","中正區","親子","Facebook"],
+ ["d6","信義商圈跨年前夕路跑","2026-11-15","06:30","10:00","台北市政府前廣場","信義商圈","信義區","運動","網站"],
+ ["d7","西門町街頭藝人嘉年華","2026-10-31","15:00","21:00","西門紅樓前廣場","西門町","萬華區","音樂表演","Instagram"],
+ ["d8","精品咖啡嘉年華","2026-11-21","10:00","18:00","新板特區 新北大都會公園","板橋新板特區","板橋區","美食","Instagram"],
+ ["d9","城市攝影講座：用手機拍夜市","2026-10-14","19:00","21:00","士林夜市 文化會館","士林夜市","士林區","講座工作坊","網站"],
+ ["d10","雙連朝市 × 在地選物小市集","2026-12-05","09:00","15:00","中山區雙連站旁 朝市","中山雙連","中山區","市集","Threads"],
+ ["d11","東區聖誕燈飾點燈儀式","2026-12-12","18:00","21:30","忠孝敦化商圈","東區","大安區","展覽","Facebook"],
+ ["d12","迪化街手沖茶藝體驗工作坊","2026-12-19","13:30","16:00","迪化街 老屋茶室","迪化街","大同區","講座工作坊","網站"]
+].map(function(r){return{id:r[0],title:r[1],date:r[2],start:r[3],end:r[4],place:r[5],area:r[6],district:r[7],type:r[8],src:r[9],url:"",visited:false,folder:""}});
+
+var state=load();
+function load(){
+  try{var s=JSON.parse(localStorage.getItem("eventRadar")||"null");if(s&&s.events)return s}catch(e){}
+  return {events:DEMO.map(function(e){return Object.assign({},e)}),folders:["週末約會","跟同事去"],google:false,activeFolder:""};
+}
+function persist(){try{localStorage.setItem("eventRadar",JSON.stringify(state))}catch(e){}}
+function save(){state.ts=Date.now();persist();schedulePush()}
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function toast(t){var el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){el.hidden=true},2200)}
+function wd(d){return "日一二三四五六"[new Date(d+"T00:00:00").getDay()]}
+function fmtDate(e){var p=e.date.split("-");return Number(p[1])+"/"+Number(p[2])+"（"+wd(e.date)+"）"+(e.start?" "+e.start+(e.end?"–"+e.end:""):"")}
+var TODAY="2026-10-08";
+
+/* 數字摘要 */
+function renderStats(){
+  var ev=state.events,up=ev.filter(function(e){return e.date>=TODAY&&!e.visited}).length;
+  var thisM=ev.filter(function(e){return e.date.slice(0,7)==="2026-10"&&e.date>=TODAY}).length;
+  var vis=ev.filter(function(e){return e.visited}).length;
+  var areas={};ev.forEach(function(e){areas[e.area]=(areas[e.area]||0)+1});
+  var top=Object.keys(areas).sort(function(a,b){return areas[b]-areas[a]})[0]||"—";
+  $("stats").innerHTML=[[ev.length,"已收集活動"],[up,"還沒去的待辦"],[thisM,"本月剩餘活動"],[vis,"已去過"],[top,"最熱門商圈"]].map(function(s){return '<div class="stat"><b>'+esc(s[0])+'</b><span>'+s[1]+'</span></div>'}).join("");
+}
+
+/* 篩選器選項 */
+function renderFilters(){
+  var ts=$("fType"),cur=ts.value;ts.innerHTML='<option value="">全部類型</option>'+TYPES.map(function(t){return '<option>'+t+'</option>'}).join("");ts.value=cur;
+  var ms=$("fMonth"),cm=ms.value,months={};state.events.forEach(function(e){months[e.date.slice(0,7)]=1});
+  ms.innerHTML='<option value="">全部月份</option>'+Object.keys(months).sort().map(function(m){return '<option value="'+m+'">'+m.replace("-","年")+'月</option>'}).join("");ms.value=cm;
+  var f=$("folders");
+  var h='<button class="chip" type="button" data-folder="" aria-pressed="'+(state.activeFolder===""?"true":"false")+'">全部</button>';
+  state.folders.forEach(function(n){var c=state.events.filter(function(e){return e.folder===n}).length;h+='<button class="chip" type="button" data-folder="'+esc(n)+'" aria-pressed="'+(state.activeFolder===n)+'">📁 '+esc(n)+' · '+c+'</button>'});
+  h+='<button class="chip" type="button" id="btnNewFolder">＋ 新資料夾</button>';
+  f.innerHTML=h;
+}
+
+function filtered(){
+  var q=$("q").value.trim().toLowerCase(),t=$("fType").value,m=$("fMonth").value,hv=$("fHideVisited").checked,ov=$("fOnlyVisited").checked;
+  return state.events.filter(function(e){
+    if(t&&e.type!==t)return false;
+    if(m&&e.date.slice(0,7)!==m)return false;
+    if(state.activeFolder&&e.folder!==state.activeFolder)return false;
+    if(hv&&e.visited)return false;
+    if(ov&&!e.visited)return false;
+    if(q&&(e.title+e.place+e.area+e.district+e.type).toLowerCase().indexOf(q)<0)return false;
+    return true;
+  }).sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0});
+}
+
+function mapUrl(e){return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(e.place+" "+e.district)}
+function calUrl(e){
+  var d=e.date.replace(/-/g,""),s=(e.start||"09:00").replace(":","")+"00",en=(e.end||e.start||"10:00").replace(":","")+"00";
+  return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(e.title)+"&dates="+d+"T"+s+"/"+d+"T"+en+"&location="+encodeURIComponent(e.place)+"&details="+encodeURIComponent("來源："+e.src+(e.url?" "+e.url:""));
+}
+
+function card(e){
+  var opts='<option value="">不放資料夾</option>'+state.folders.map(function(n){return '<option'+(e.folder===n?" selected":"")+'>'+esc(n)+'</option>'}).join("");
+  return '<article class="card'+(e.visited?" visited":"")+'" data-id="'+e.id+'">'+
+   '<div class="date">'+fmtDate(e)+(e.date<TODAY?" · 已結束":"")+'</div>'+
+   '<h4>'+esc(e.title)+'</h4>'+
+   '<div class="meta">📍 '+esc(e.place)+'</div>'+
+   '<div class="tags"><span class="tag type">'+esc(e.type)+'</span><span class="tag">'+esc(e.area)+'</span><span class="tag">'+esc(e.district)+'</span><span class="tag src">'+esc(e.src)+'</span></div>'+
+   '<div class="actions">'+
+    '<a class="btn sm" href="'+mapUrl(e)+'" target="_blank" rel="noopener">地圖</a>'+
+    '<a class="btn sm" href="'+calUrl(e)+'" target="_blank" rel="noopener">加入行事曆</a>'+
+    '<button class="btn sm" type="button" data-act="visit" aria-pressed="'+e.visited+'">'+(e.visited?"✓ 已去過":"標記已去過")+'</button>'+
+    '<select data-act="folder" aria-label="放進資料夾">'+opts+'</select>'+
+    (e.id.charAt(0)==="u"?'<button class="btn sm" type="button" data-act="del">刪除</button>':'')+
+   '</div></article>';
+}
+
+function renderList(){
+  var list=filtered(),g=$("fGroup").value,groups={},order=[];
+  list.forEach(function(e){
+    var k=g==="area"?e.area:g==="district"?e.district:g==="folder"?(e.folder||"未分類"):e.date.slice(0,7).replace("-","年")+"月";
+    if(!groups[k]){groups[k]=[];order.push(k)}groups[k].push(e);
+  });
+  order.sort(function(a,b){return groups[b].length-groups[a].length||(a<b?-1:1)});
+  if(g==="month"||g==="folder")order.sort();
+  if(!list.length){$("list").innerHTML='<div class="empty">沒有符合條件的活動。<br>試著清除篩選，或貼上一則貼文來新增。</div>';return}
+  $("list").innerHTML=order.map(function(k){return '<section class="group"><h3>'+esc(k)+' <em>'+groups[k].length+' 場</em></h3><div class="cards">'+groups[k].map(card).join("")+'</div></section>'}).join("");
+}
+function render(){renderStats();renderFilters();renderList();renderGoogle()}
+function renderGoogle(){
+  var b=$("btnGoogle");
+  if(user){b.innerHTML='<span class="avatar">'+esc((user.email||"G").charAt(0).toUpperCase())+'</span> '+esc(user.email||"已登入")+' · 登出';$("syncNote").textContent="已登入 Google：已去過、資料夾與清單會自動同步到雲端。";return}
+  if(state.google){b.innerHTML='<span class="avatar">示</span> 已同步 · 示範帳號';$("syncNote").textContent="已連結示範 Google 帳號：已去過、資料夾與清單會自動同步（示範狀態）。"}
+  else{b.textContent="連結 Google 帳號";$("syncNote").textContent="目前資料只存在這台裝置。連結 Google 帳號後可跨裝置同步（此頁為示範，未真的連到 Google）。"}
+}
+
+/* 貼文分析 */
+var SAMPLE="🎉【冬日夜市×手作市集】\n日期：11/28（六）14:00-20:00\n📍地點：士林夜市 慈諴宮前廣場\n超過 40 組攤位、手作小物、咖啡甜點一次逛，歡迎帶朋友來玩！\n#士林 #市集";
+function analyze(text,url){
+  var lines=text.split(/\n/).map(function(l){return l.trim()}).filter(Boolean);
+  var title=(lines[0]||"未命名活動").replace(/^[^一-龥A-Za-z0-9【\[]+/,"").replace(/[【】\[\]]/g,"").slice(0,40);
+  var m=text.match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})/),y=2026,mo,d;
+  if(m){y=+m[1];mo=+m[2];d=+m[3]}else{m=text.match(/(\d{1,2})[\/月](\d{1,2})/);if(m){mo=+m[1];d=+m[2]}}
+  var date=(mo&&d)?y+"-"+("0"+mo).slice(-2)+"-"+("0"+d).slice(-2):TODAY;
+  var tm=text.match(/(\d{1,2}):(\d{2})\s*[-–~至到]\s*(\d{1,2}):(\d{2})/),start="",end="";
+  if(tm){start=("0"+tm[1]).slice(-2)+":"+tm[2];end=("0"+tm[3]).slice(-2)+":"+tm[4]}
+  else{var t1=text.match(/(\d{1,2}):(\d{2})/);if(t1)start=("0"+t1[1]).slice(-2)+":"+t1[2]}
+  var pm=text.match(/(?:地點|地址|📍)\s*[:：]?\s*([^\n]+)/),place=pm?pm[1].trim():"";
+  var hay=place+text,area="",k;
+  for(k in AREA_KEYS){if(AREA_KEYS[k].some(function(w){return hay.indexOf(w)>=0})){area=k;break}}
+  var district="";
+  DISTRICTS.some(function(x){if(hay.indexOf(x)>=0){district=x;return true}});
+  if(!district&&area)district=AREA_DISTRICT[area]||"";
+  if(!area)area="其他商圈";if(!district)district="未判斷";
+  var type="市集",found=false;
+  for(k in TYPE_KEYS){if(TYPE_KEYS[k].some(function(w){return text.indexOf(w)>=0})){type=k;found=true;break}}
+  var src=/instagram\.com/.test(url)?"Instagram":/facebook\.com|fb\.com/.test(url)?"Facebook":/threads\.net/.test(url)?"Threads":url?"網站":"貼文";
+  return {id:"u"+Date.now(),title:title,date:date,start:start,end:end,place:place||title,area:area,district:district,type:type,src:src,url:url,visited:false,folder:""};
+}
+function showPreview(r){
+  var tOpts=TYPES.map(function(t){return '<option'+(t===r.type?" selected":"")+'>'+t+'</option>'}).join("");
+  $("preview").innerHTML='<div class="preview"><strong>分析結果（可修改）</strong><div class="grid">'+
+   '<div><label for="pvTitle">名稱</label><input type="text" id="pvTitle" value="'+esc(r.title)+'"></div>'+
+   '<div><label for="pvDate">日期</label><input type="text" id="pvDate" value="'+r.date+'"></div>'+
+   '<div><label for="pvPlace">地點</label><input type="text" id="pvPlace" value="'+esc(r.place)+'"></div>'+
+   '<div><label for="pvArea">商圈</label><input type="text" id="pvArea" value="'+esc(r.area)+'"></div>'+
+   '<div><label for="pvDistrict">行政區</label><input type="text" id="pvDistrict" value="'+esc(r.district)+'"></div>'+
+   '<div><label for="pvType">類型</label><select id="pvType">'+tOpts+'</select></div></div>'+
+   '<button class="btn primary" id="btnAdd" type="button">加入清單</button></div>';
+  $("btnAdd").onclick=function(){
+    r.title=$("pvTitle").value||r.title;r.date=$("pvDate").value||r.date;r.place=$("pvPlace").value;r.area=$("pvArea").value;r.district=$("pvDistrict").value;r.type=$("pvType").value;
+    state.events.push(r);save();render();$("preview").innerHTML="";$("srcText").value="";toast("已加入「"+r.title+"」");
+  };
+}
+
+/* 分享 */
+function encode(list){return btoa(unescape(encodeURIComponent(JSON.stringify(list))))}
+function decode(s){return JSON.parse(decodeURIComponent(escape(atob(s.trim()))))}
+function shareList(){
+  var v=$("shareScope").value;
+  return state.events.filter(function(e){return v==="all"||(v==="todo"?!e.visited:e.folder===v)});
+}
+function renderShare(){
+  var s=$("shareScope"),cur=s.value||"all";
+  s.innerHTML='<option value="all">全部活動</option><option value="todo">還沒去的活動</option>'+state.folders.map(function(n){return '<option value="'+esc(n)+'">資料夾：'+esc(n)+'</option>'}).join("");
+  s.value=cur;
+  $("shareCode").value=encode(shareList().map(function(e){return {title:e.title,date:e.date,start:e.start,end:e.end,place:e.place,area:e.area,district:e.district,type:e.type,src:e.src}}));
+}
+function copy(text,msg){
+  function fb(){var t=$("shareCode");t.value=text;t.select();toast("請手動複製（Ctrl/⌘+C）")}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){toast(msg)},fb)}else fb();
+}
+
+/* 事件 */
+document.addEventListener("click",function(ev){
+  var t=ev.target;
+  if(t.matches&&t.matches("[data-close]")){t.closest("dialog").close();return}
+  var chip=t.closest&&t.closest("[data-folder]");
+  if(chip){state.activeFolder=chip.getAttribute("data-folder");save();render();return}
+  if(t.id==="btnNewFolder"){$("folderName").value="";$("dlgFolder").showModal();return}
+  var act=t.getAttribute&&t.getAttribute("data-act");
+  if(act){
+    var id=t.closest(".card").getAttribute("data-id"),e=state.events.filter(function(x){return x.id===id})[0];
+    if(act==="visit"){e.visited=!e.visited;save();render();toast(e.visited?"已標記為去過":"已取消標記")}
+    if(act==="del"){state.events=state.events.filter(function(x){return x.id!==id});save();render()}
+  }
+});
+document.addEventListener("change",function(ev){
+  var t=ev.target;
+  if(t.getAttribute("data-act")==="folder"){
+    var id=t.closest(".card").getAttribute("data-id");
+    state.events.forEach(function(e){if(e.id===id)e.folder=t.value});save();render();toast(t.value?"已放進「"+t.value+"」":"已移出資料夾");
+  }
+});
+["q","fType","fMonth","fGroup","fHideVisited","fOnlyVisited"].forEach(function(id){$(id).addEventListener("input",renderList)});
+$("fOnlyVisited").addEventListener("change",function(){if(this.checked)$("fHideVisited").checked=false;renderList()});
+$("fHideVisited").addEventListener("change",function(){if(this.checked)$("fOnlyVisited").checked=false;renderList()});
+$("btnSample").onclick=function(){$("srcText").value=SAMPLE;$("srcUrl").value="https://www.instagram.com/p/demo"};
+function urlOnly(s){return /^https?:\/\/\S+$/i.test(s)}
+function textFromUrl(u){
+  var x;try{x=new URL(u)}catch(e){return ""}
+  var parts=x.pathname.split("/").filter(Boolean).map(function(p){try{return decodeURIComponent(p)}catch(e){return p}});
+  var q=[];x.searchParams.forEach(function(v){q.push(v)});
+  return parts.concat(q).join(" ").replace(/[-_+]/g," ").trim();
+}
+function proxyUrl(){try{return localStorage.getItem("eventRadarProxy")||PROXY_URL}catch(e){return PROXY_URL}}
+/* 網頁若內嵌 schema.org Event 結構化資料，直接取用日期與地點，比猜文字準 */
+function eventFromLd(blocks){
+  var found=null;
+  function walk(o){
+    if(!o||found)return;
+    if(Array.isArray(o)){o.forEach(walk);return}
+    if(typeof o!=="object")return;
+    var t=[].concat(o["@type"]||[]).join(",");
+    if(/Event/.test(t)&&o.startDate){found=o;return}
+    walk(o["@graph"]);
+  }
+  blocks.forEach(function(b){try{walk(JSON.parse(b))}catch(e){}});
+  if(!found)return "";
+  var s=String(found.startDate),e=found.endDate?String(found.endDate):"",d=s.slice(0,10),
+      t1=(s.match(/T(\d{2}:\d{2})/)||[])[1],t2=(e.match(/T(\d{2}:\d{2})/)||[])[1],
+      loc=found.location||{},addr=loc.address,place=[loc.name,typeof addr==="string"?addr:addr&&(addr.addressLocality||"")+(addr.streetAddress||"")].filter(Boolean).join(" ");
+  return "日期："+d+(t1?" "+t1+(t2?"-"+t2:""):"")+(place?"\n地點："+place:"");
+}
+function fetchPage(u){
+  var px=proxyUrl();
+  if(px){
+    return fetch(px+(px.indexOf("?")<0?"?":"&")+"url="+encodeURIComponent(u)).then(function(r){return r.json()}).then(function(j){
+      if(j.error)throw 0;
+      return [j.title,j.event,j.description,j.text].filter(Boolean).join("\n");
+    });
+  }
+  var ctl=new AbortController(),tm=setTimeout(function(){ctl.abort()},7000);
+  return fetch(u,{signal:ctl.signal}).then(function(r){clearTimeout(tm);if(!r.ok)throw 0;return r.text()}).then(function(html){
+    var doc=new DOMParser().parseFromString(html,"text/html");
+    function meta(n){var m=doc.querySelector('meta[property="'+n+'"],meta[name="'+n+'"]');return m?m.getAttribute("content")||"":""}
+    var title=meta("og:title")||(doc.title||"");
+    var ld=eventFromLd(Array.prototype.map.call(doc.querySelectorAll('script[type="application/ld+json"]'),function(s){return s.textContent}));
+    doc.querySelectorAll("script,style,nav,footer").forEach(function(n){n.remove()});
+    var body=doc.body?doc.body.textContent.replace(/\s+/g," ").slice(0,1500):"";
+    return [title,ld,meta("og:description")||meta("description"),body].filter(Boolean).join("\n");
+  });
+}
+$("btnAnalyze").onclick=function(){
+  var t=$("srcText").value.trim(),u=$("srcUrl").value.trim();
+  if(urlOnly(t)){u=t;t=""}
+  if(!t&&!u){toast("請貼上貼文內容或活動網址");return}
+  if(t){showPreview(analyze(t,u));return}
+  if(!urlOnly(u)){toast("網址格式不正確，需以 http:// 或 https:// 開頭");return}
+  var btn=$("btnAnalyze");btn.disabled=true;btn.textContent="讀取網址中…";
+  fetchPage(u).then(function(txt){
+    showPreview(analyze(txt,u));toast("已讀取網頁內容並分析");
+  }).catch(function(){
+    var guess=textFromUrl(u);
+    showPreview(analyze(guess||"未命名活動",u));
+    $("preview").insertAdjacentHTML("afterbegin",'<p class="note">這個網站不允許直接讀取內容（Instagram、Facebook、Threads 通常都是），只能依網址判斷來源。請確認下方欄位，或把貼文文字複製貼到上方框內，辨識會準很多。</p>');
+  }).then(function(){btn.disabled=false;btn.textContent="分析"});
+};
+$("proxyInput").value=proxyUrl();
+$("btnProxy").onclick=function(){
+  var v=$("proxyInput").value.trim();
+  if(v&&!urlOnly(v)){toast("服務網址需以 https:// 開頭");return}
+  try{localStorage.setItem("eventRadarProxy",v)}catch(e){}
+  toast(v?"已儲存分析服務":"已清除，改用直接讀取");
+};
+$("srcUrl").addEventListener("keydown",function(e){if(e.key==="Enter")$("btnAnalyze").click()});
+$("btnFolderOk").onclick=function(){
+  var n=$("folderName").value.trim();
+  if(!n){toast("請輸入資料夾名稱");return}
+  if(state.folders.indexOf(n)>=0){toast("已有同名資料夾");return}
+  state.folders.push(n);save();$("dlgFolder").close();render();toast("已建立「"+n+"」");
+};
+$("btnShare").onclick=function(){renderShare();$("dlgShare").showModal()};
+$("shareScope").onchange=renderShare;
+$("btnCopyCode").onclick=function(){copy($("shareCode").value,"已複製分享碼")};
+$("btnCopyText").onclick=function(){
+  copy(shareList().map(function(e){return "• "+e.title+"｜"+fmtDate(e)+"｜"+e.place}).join("\n"),"已複製文字清單");
+};
+function importList(arr){
+  var n=0;
+  arr.forEach(function(r){
+    if(!r.title||!r.date)return;
+    if(state.events.some(function(e){return e.title===r.title&&e.date===r.date}))return;
+    state.events.push({id:"u"+Date.now()+n,title:String(r.title),date:String(r.date),start:r.start||"",end:r.end||"",place:String(r.place||""),area:String(r.area||"其他商圈"),district:String(r.district||"未判斷"),type:TYPES.indexOf(r.type)>=0?r.type:"市集",src:"朋友分享",url:"",visited:false,folder:""});n++;
+  });
+  save();render();return n;
+}
+$("btnImport").onclick=function(){
+  try{var n=importList(decode($("importCode").value));$("importCode").value="";toast("已匯入 "+n+" 筆活動")}
+  catch(e){toast("分享碼無法辨識，請確認是否完整貼上")}
+};
+
+/* Supabase：Google 登入、跨裝置同步、分享連結 */
+var SB=null,user=null,pushT=null,incoming=null;
+function sbCfg(){
+  var c={};try{c=JSON.parse(localStorage.getItem("eventRadarSb")||"{}")}catch(e){}
+  return {url:c.url||SB_URL,key:c.key||SB_KEY};
+}
+function initSb(){
+  var c=sbCfg();
+  if(SB||!c.url||!c.key||!window.supabase)return !!SB;
+  SB=window.supabase.createClient(c.url,c.key);
+  SB.auth.onAuthStateChange(function(ev,s){
+    var nu=s?s.user:null,changed=(nu&&nu.id)!==(user&&user.id);
+    user=nu;renderGoogle();if(user&&changed)pull();
+  });
+  return true;
+}
+function schedulePush(){
+  if(!SB||!user)return;
+  clearTimeout(pushT);
+  pushT=setTimeout(function(){
+    SB.from("user_state").upsert({user_id:user.id,state:{events:state.events,folders:state.folders,ts:state.ts},updated_at:new Date().toISOString()}).then(function(r){
+      if(r.error)toast("同步失敗，稍後會再試");
+    });
+  },800);
+}
+function pull(){
+  SB.from("user_state").select("state").eq("user_id",user.id).maybeSingle().then(function(r){
+    var rs=r.data&&r.data.state;
+    if(rs&&(rs.ts||0)>(state.ts||0)){state.events=rs.events||[];state.folders=rs.folders||[];state.ts=rs.ts;persist();render();toast("已從雲端同步")}
+    else{schedulePush();toast("已登入，資料同步中")}
+  });
+}
+function randCode(){
+  var a="abcdefghijkmnpqrstuvwxyz23456789",s="",b=new Uint8Array(10);crypto.getRandomValues(b);
+  for(var i=0;i<10;i++)s+=a[b[i]%a.length];return s;
+}
+$("btnMakeLink").onclick=function(){
+  if(!initSb()||!user){toast("請先連結 Google 帳號，才能建立分享連結");return}
+  var list=shareList().map(function(e){return {title:e.title,date:e.date,start:e.start,end:e.end,place:e.place,area:e.area,district:e.district,type:e.type,src:e.src}});
+  if(!list.length){toast("這個範圍內沒有活動");return}
+  var code=randCode(),name=$("shareScope").options[$("shareScope").selectedIndex].text;
+  SB.from("shares").insert({code:code,name:name,events:list}).then(function(r){
+    if(r.error){toast("建立失敗，請確認資料庫已設定");return}
+    var link=location.href.split("#")[0]+"#share="+code;
+    $("shareLink").value=link;copy(link,"已複製分享連結");
+  });
+};
+function checkIncoming(){
+  var m=location.hash.match(/share=([a-z0-9]+)/i);
+  if(!m)return;
+  if(!initSb()){toast("此連結需要先在網站設定 Supabase 才能開啟");return}
+  SB.rpc("get_share",{p_code:m[1]}).then(function(r){
+    if(r.error||!r.data){toast("找不到這份分享，可能已被刪除");return}
+    incoming=r.data;
+    $("inTitle").textContent="朋友分享了「"+incoming.name+"」";
+    $("inList").innerHTML=incoming.events.map(function(e){return '<li>'+esc(e.title)+' · '+esc(e.date)+' · '+esc(e.area)+'</li>'}).join("");
+    $("dlgIncoming").showModal();
+  });
+}
+$("btnTakeIn").onclick=function(){
+  var n=importList(incoming.events);$("dlgIncoming").close();toast("已加入 "+n+" 筆活動");
+  try{history.replaceState(null,"",location.href.split("#")[0])}catch(e){}
+};
+function openGoogle(){
+  var c=sbCfg();$("sbUrl").value=c.url;$("sbKey").value=c.key;
+  $("dlgGoogle").showModal();
+}
+$("btnGoogle").onclick=function(){
+  if(user){SB.auth.signOut().then(function(){user=null;renderGoogle();toast("已登出，資料仍保留在這台裝置")});return}
+  if(state.google){state.google=false;save();render();toast("已中斷示範同步");return}
+  openGoogle();
+};
+$("btnGoogleLogin").onclick=function(){
+  var u=$("sbUrl").value.trim(),k=$("sbKey").value.trim();
+  if(!/^https:\/\//.test(u)||!k){toast("請填入 Supabase 專案網址與 anon key");return}
+  try{localStorage.setItem("eventRadarSb",JSON.stringify({url:u,key:k}))}catch(e){}
+  if(!initSb()){toast("Supabase 套件沒有載入，請確認網路連線");return}
+  SB.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.href.split("#")[0]}}).then(function(r){if(r.error)toast("登入失敗："+r.error.message)});
+};
+$("btnGoogleOk").onclick=function(){state.google=true;save();$("dlgGoogle").close();render();toast("已連結（示範）")};
+$("btnTheme").onclick=function(){
+  var r=document.documentElement,dark=r.getAttribute("data-theme")==="dark"||(!r.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme: dark)").matches);
+  r.setAttribute("data-theme",dark?"light":"dark");
+};
+render();
+initSb();
+checkIncoming();
+})();
+</script>
