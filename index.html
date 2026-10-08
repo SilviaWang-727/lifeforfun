@@ -362,9 +362,15 @@ function guessTitle(lines){
   if(m){t=cleanText(m[1]).replace(/^[「『《【]|[」』》】]$/g,"");if(t.length>=2)return t.slice(0,40)}
   var re=/[【「『《]([^】」』》\n]{3,40})[】」』》]/g;
   while((m=re.exec(all))){t=cleanText(m[1]);if(t.length>=3&&!GENERIC_RE.test(t)&&!/^[\d\s\/:：\-–~月日]+$/.test(t))return t.slice(0,40)}
+  var cl=lines.map(function(l){return /^[📍📌]/.test(l)?"":cleanText(l)});
+  var isMeta=function(x){return !x||x.length<4&&!/[一-龥]{3}/.test(x)||META_RE.test(x)||ADDR_RE.test(x)||/^[\d\s\/:：\-–~～〜年月日週周（）()一二三四五六]+$/.test(x)||/^\d{1,2}[\/月]\d{1,2}/.test(x)||/^\d{1,2}:\d{2}/.test(x)||/^[①-⑩❶-❿\d]+[.、)）]?\s*\S/.test(x)&&/^[①-⑩❶-❿]|^\d+[.、)）]/.test(x)||/[:：]$/.test(x)||/^(?:注意|每日|每人|限|※|\*)/.test(x)||/^[A-Z][A-Z0-9 ]{3,}\s?\d?F?$/.test(x)};
   for(i=0;i<lines.length;i++){
-    t=cleanText(lines[i]);
-    if(t.length<4||META_RE.test(t)||/^[\d\s\/:：\-–~年月日週周（）()一二三四五六]+$/.test(t))continue;
+    t=cl[i];
+    if(isMeta(t))continue;
+    /* 一句話被換行切成兩三段（例如「現場可免費品嚐／星巴克高蛋白雲朵」）時，把短片段接起來 */
+    var j=i+1;
+    while(j<lines.length&&j<=i+2&&t.length<=14&&!/[。！!？?：:，,]$/.test(t)&&cl[j]&&!isMeta(cl[j])&&cl[j].length<=16){t+=cl[j];j++}
+    t=t.replace(/^(?:歡迎來到|歡迎|現場提供|現場可|現場|即日起|快來)\s*/,"");
     t=t.split(/[｜|]/)[0].replace(/^[^一-龥A-Za-z0-9「『《【\[]+/,"").replace(/[【】\[\]「」『』《》]/g,"").replace(/[！!。，,~～]+$/,"").trim();
     t=t.split(/\s+(?:就在|將在|在|於|@)/)[0];
     if(t.length>=3&&!GENERIC_RE.test(t))return t.slice(0,40);
@@ -380,7 +386,13 @@ function tidyPlace(p){
 }
 function guessPlace(lines,title){
   var all=lines.join("\n"),m=all.match(/(?:活動地點|集合地點|活動場地|地點|地址|場地|會場|位置|Location|Where|📍|📌)\s*[:：]?\s*([^\n]+)/i),p;
-  if(m){p=tidyPlace(m[1]);if(p.length>=2)return p}
+  if(m){
+    p=tidyPlace(m[1]);
+    var li=-1,k;for(k=0;k<lines.length;k++){if(lines[k].indexOf(m[0])>=0){li=k;break}}
+    var nx=li>=0&&lines[li+1]?lines[li+1].match(ADDR_RE):null;
+    if(nx&&p.indexOf(nx[0])<0&&!ADDR_RE.test(p))p=p+"（"+nx[0]+"）";
+    if(p.length>=2)return p;
+  }
   m=all.match(ADDR_RE);if(m)return tidyPlace(m[0]);
   for(var i=0;i<lines.length;i++){
     var t=cleanText(lines[i]);
@@ -397,7 +409,7 @@ function analyze(text,url){
   var m=text.match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})/),y=2026,mo,d;
   if(m){y=+m[1];mo=+m[2];d=+m[3]}else{m=text.match(/(\d{1,2})[\/月](\d{1,2})/);if(m){mo=+m[1];d=+m[2]}}
   var date=(mo&&d)?y+"-"+("0"+mo).slice(-2)+"-"+("0"+d).slice(-2):TODAY;
-  var tm=text.match(/(\d{1,2}):(\d{2})\s*[-–~至到]\s*(\d{1,2}):(\d{2})/),start="",end="";
+  var tm=text.match(/(\d{1,2}):(\d{2})\s*[-–~～〜至到]\s*(\d{1,2}):(\d{2})/),start="",end="";
   if(tm){start=("0"+tm[1]).slice(-2)+":"+tm[2];end=("0"+tm[3]).slice(-2)+":"+tm[4]}
   else{var t1=text.match(/(\d{1,2}):(\d{2})/);if(t1)start=("0"+t1[1]).slice(-2)+":"+t1[2]}
   var place=place0;
