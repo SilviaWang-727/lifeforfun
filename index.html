@@ -291,7 +291,7 @@ function calUrl(e){
 }
 
 function card(e){
-  var opts='<option value="">不放資料夾</option>'+state.folders.map(function(n){return '<option'+(e.folder===n?" selected":"")+'>'+esc(n)+'</option>'}).join("");
+  var opts='<option value="">'+(e.folder?"移出資料夾":"加入資料夾")+'</option>'+state.folders.map(function(n){return '<option'+(e.folder===n?" selected":"")+'>'+esc(n)+'</option>'}).join("");
   return '<article class="card'+(e.visited?" visited":"")+'" data-id="'+e.id+'">'+'<div class="art">'+(TYPE_ART[e.type]||"")+'</div>'+
    '<div class="date">'+fmtDate(e)+(endOf(e)<TODAY?" · 已結束":"")+'</div>'+
    '<h4>'+esc(e.title)+'</h4>'+
