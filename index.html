@@ -66,6 +66,9 @@ textarea{min-height:110px;resize:vertical}
 .tag.type{background:var(--warm-soft);color:var(--warm)}
 .tag.src{background:var(--bg);color:var(--muted);border:1px solid var(--line);display:inline-flex;align-items:center;padding:2px 7px}
 .tag.src svg{display:block}
+.tag.src a.srclink{display:inline-flex;border-radius:6px}
+.tag.src:has(a.srclink){padding:0}.tag.src a.srclink{padding:2px 7px}
+.tag.src:has(a.srclink):hover{border-color:var(--accent)}
 .actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
 .card select{min-height:32px;padding:3px 8px;font-size:.82rem;width:auto;max-width:100%}
 .hero{display:block;width:100%;height:auto;max-height:220px;margin-block:8px 0;border-radius:20px;background:linear-gradient(#e8f5fd,#d7edfb);overflow:hidden}
@@ -300,14 +303,18 @@ var SRC_ICONS={
  "貼文":'<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4h0A2.5 2.5 0 0 1 4 13.5z" fill="none" stroke="#2d7664" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 8h8M8 11.5h5" stroke="#2d7664" stroke-width="1.6" stroke-linecap="round"/></svg>',
  "朋友分享":'<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="9" cy="8.5" r="3.2" fill="none" stroke="#2d7664" stroke-width="1.8"/><path d="M3 19c0-3.2 2.7-5.2 6-5.2s6 2 6 5.2" fill="none" stroke="#2d7664" stroke-width="1.8" stroke-linecap="round"/><circle cx="17" cy="9.5" r="2.4" fill="none" stroke="#2d7664" stroke-width="1.6"/><path d="M17.5 14.2c2 .3 3.5 1.7 3.5 4" fill="none" stroke="#2d7664" stroke-width="1.6" stroke-linecap="round"/></svg>'
 };
-function srcIcon(s){return SRC_ICONS[s]||esc(s)}
+function safeUrl(u){return typeof u==="string"&&/^https?:\/\/[^\s<>"']+$/i.test(u)}
+function srcIcon(s,u){
+  var ic=SRC_ICONS[s]||esc(s);
+  return safeUrl(u)?'<a class="srclink" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" title="開啟來源：'+esc(s)+'" aria-label="開啟來源：'+esc(s)+'（新分頁）">'+ic+'</a>':ic;
+}
 function card(e){
   var opts='<option value="">'+(e.folder?"移出資料夾":"加入資料夾")+'</option>'+state.folders.map(function(n){return '<option'+(e.folder===n?" selected":"")+'>'+esc(n)+'</option>'}).join("");
   return '<article class="card'+(e.visited?" visited":"")+'" data-id="'+e.id+'">'+'<div class="art">'+(TYPE_ART[e.type]||"")+'</div>'+
    '<div class="date">'+fmtDate(e)+(endOf(e)<TODAY?" · 已結束":"")+'</div>'+
    '<h4>'+esc(e.title)+'</h4>'+
    '<div class="meta">📍 '+esc(e.place)+'</div>'+
-   '<div class="tags"><span class="tag type">'+esc(e.type)+'</span><span class="tag">'+esc(e.area)+'</span><span class="tag">'+esc(e.district)+'</span><span class="tag src" title="來源：'+esc(e.src)+'" aria-label="來源：'+esc(e.src)+'">'+srcIcon(e.src)+'</span></div>'+
+   '<div class="tags"><span class="tag type">'+esc(e.type)+'</span><span class="tag">'+esc(e.area)+'</span><span class="tag">'+esc(e.district)+'</span><span class="tag src" title="來源：'+esc(e.src)+'" aria-label="來源：'+esc(e.src)+'">'+srcIcon(e.src,e.url)+'</span></div>'+
    '<div class="actions">'+
     '<a class="btn sm" href="'+mapUrl(e)+'" target="_blank" rel="noopener">地圖</a>'+
     '<a class="btn sm" href="'+calUrl(e)+'" target="_blank" rel="noopener">加入行事曆</a>'+
@@ -419,6 +426,7 @@ function parseDates(text){
 function endOf(e){return e.endDate&&e.endDate>e.date?e.endDate:e.date}
 function analyze(text,url){
   var lines=text.split(/\n/).map(function(l){return l.trim()}).filter(Boolean);
+  if(!url){var um=text.match(/https?:\/\/[^\s<>"'）)」]+/);if(um)url=um[0]}
   var title=guessTitle(lines),place0=guessPlace(lines,title);
   var dr=parseDates(text),date=dr.date,endDate=dr.endDate;
   var tm=text.match(/(\d{1,2}):(\d{2})\s*[-–~～〜至到]\s*(\d{1,2}):(\d{2})/),start="",end="";
@@ -453,6 +461,7 @@ function showPreview(r){
     if(!initSb()){state.events.push(r);save();render();done();toast("已加入「"+r.title+"」（僅存在這台裝置）");return}
     var row={title:r.title.slice(0,80),event_date:r.date,start_time:r.start||"",end_time:r.end||"",place:(r.place||"").slice(0,120),area:(r.area||"").slice(0,40),district:(r.district||"").slice(0,20),type:r.type,source:r.src||"貼文"};
     if(r.endDate)row.end_date=r.endDate;
+    if(safeUrl(r.url))row.source_url=r.url.slice(0,500);
     SB.from("events").insert(row).then(function(x){
       if(x.error){toast("新增失敗："+x.error.message);return}
       done();loadPublic("已加入「"+r.title+"」並存到資料庫");
@@ -471,7 +480,7 @@ function renderShare(){
   var s=$("shareScope"),cur=s.value||"all";
   s.innerHTML='<option value="all">全部活動</option><option value="todo">還沒去的活動</option>'+state.folders.map(function(n){return '<option value="'+esc(n)+'">資料夾：'+esc(n)+'</option>'}).join("");
   s.value=cur;
-  $("shareCode").value=encode(shareList().map(function(e){return {title:e.title,date:e.date,endDate:e.endDate||"",start:e.start,end:e.end,place:e.place,area:e.area,district:e.district,type:e.type,src:e.src}}));
+  $("shareCode").value=encode(shareList().map(function(e){return {url:e.url||"",title:e.title,date:e.date,endDate:e.endDate||"",start:e.start,end:e.end,place:e.place,area:e.area,district:e.district,type:e.type,src:e.src}}));
 }
 function copy(text,msg){
   function fb(){var t=$("shareCode");t.value=text;t.select();toast("請手動複製（Ctrl/⌘+C）")}
@@ -614,7 +623,7 @@ function importList(arr){
   arr.forEach(function(r){
     if(!r.title||!r.date)return;
     if(state.events.some(function(e){return e.title===r.title&&e.date===r.date}))return;
-    state.events.push({id:"u"+Date.now()+n,title:String(r.title),date:String(r.date),endDate:String(r.endDate||""),start:r.start||"",end:r.end||"",place:String(r.place||""),area:String(r.area||"其他商圈"),district:String(r.district||"未判斷"),type:TYPES.indexOf(r.type)>=0?r.type:"市集",src:"朋友分享",url:"",visited:false,folder:""});n++;
+    state.events.push({id:"u"+Date.now()+n,title:String(r.title),date:String(r.date),endDate:String(r.endDate||""),start:r.start||"",end:r.end||"",place:String(r.place||""),area:String(r.area||"其他商圈"),district:String(r.district||"未判斷"),type:TYPES.indexOf(r.type)>=0?r.type:"市集",src:"朋友分享",url:safeUrl(r.url)?String(r.url).slice(0,500):"",visited:false,folder:""});n++;
   });
   save();render();return n;
 }
@@ -660,7 +669,7 @@ function randCode(){
 }
 $("btnMakeLink").onclick=function(){
   if(!initSb()||!user){toast("請先連結 Google 帳號，才能建立分享連結");return}
-  var list=shareList().map(function(e){return {title:e.title,date:e.date,endDate:e.endDate||"",start:e.start,end:e.end,place:e.place,area:e.area,district:e.district,type:e.type,src:e.src}});
+  var list=shareList().map(function(e){return {url:e.url||"",title:e.title,date:e.date,endDate:e.endDate||"",start:e.start,end:e.end,place:e.place,area:e.area,district:e.district,type:e.type,src:e.src}});
   if(!list.length){toast("這個範圍內沒有活動");return}
   var code=randCode(),name=$("shareScope").options[$("shareScope").selectedIndex].text;
   SB.from("shares").insert({code:code,name:name,events:list}).then(function(r){
@@ -705,7 +714,7 @@ function loadPublic(msg){
     var old={},ids={};
     state.events.forEach(function(e){old[e.id]=e});
     var db=x.data.map(function(r){ids[r.id]=1;var o=old[r.id]||{};
-      return{id:r.id,title:r.title,date:r.event_date,endDate:r.end_date||"",start:r.start_time,end:r.end_time,place:r.place,area:r.area,district:r.district,type:r.type,src:r.source,url:"",visited:!!o.visited,folder:o.folder||""}});
+      return{id:r.id,title:r.title,date:r.event_date,endDate:r.end_date||"",start:r.start_time,end:r.end_time,place:r.place,area:r.area,district:r.district,type:r.type,src:r.source,url:r.source_url||"",visited:!!o.visited,folder:o.folder||""}});
     var local=state.events.filter(function(e){return !ids[e.id]&&!/^d\d+$/.test(e.id)&&!/^[0-9a-f]{8}-[0-9a-f-]{27}$/.test(e.id)});
     state.events=db.concat(local);persist();render();
     if(msg)toast(msg);
