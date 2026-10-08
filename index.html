@@ -50,6 +50,12 @@ textarea{min-height:110px;resize:vertical}
 @media(max-width:700px){.filters{grid-template-columns:1fr 1fr}.filters .grow{grid-column:1/-1}}
 .folders{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
 .chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:4px 12px;font-size:.85rem}
+.chip[data-folder]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.ctxmenu{position:fixed;z-index:40;min-width:170px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:0 8px 24px rgba(60,45,30,.18);display:flex;flex-direction:column;gap:2px}
+.ctxmenu[hidden]{display:none}
+.ctxmenu button{border:0;background:transparent;text-align:left;border-radius:10px;padding:10px 14px;min-height:44px;font-size:.95rem;color:var(--fg)}
+.ctxmenu button:hover,.ctxmenu button:focus-visible{background:var(--accent-soft);color:var(--accent)}
+#btnDelFolder{color:#b3402a}
 .chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
 .group h3{font-size:1.05rem;margin:28px 0 10px;display:flex;gap:10px;align-items:center;color:var(--accent);letter-spacing:.08em;padding-bottom:6px;border-bottom:1px solid var(--accent)}
 .group h3 em{font-style:normal;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:0 9px;font-size:.78rem}
@@ -216,6 +222,11 @@ dialog::backdrop{background:rgba(60,45,30,.45)}
   </div>
 </dialog>
 
+<div class="ctxmenu" id="folderMenu" role="menu" hidden>
+  <button type="button" role="menuitem" id="btnRenameFolder">✎ 重新命名</button>
+  <button type="button" role="menuitem" id="btnDelFolder">🗑 刪除資料夾</button>
+</div>
+
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
@@ -279,9 +290,7 @@ function renderFilters(){
   var h='<button class="chip" type="button" data-folder="" aria-pressed="'+(state.activeFolder===""?"true":"false")+'">全部</button>';
   state.folders.forEach(function(n){var c=state.events.filter(function(e){return e.folder===n}).length;h+='<button class="chip" type="button" data-folder="'+esc(n)+'" aria-pressed="'+(state.activeFolder===n)+'">📁 '+esc(n)+' · '+c+'</button>'});
   h+='<button class="chip" type="button" id="btnNewFolder">＋ 新資料夾</button>';
-  if(state.activeFolder&&state.folders.indexOf(state.activeFolder)>=0){
-    h+='<button class="chip" type="button" id="btnRenameFolder" aria-label="重新命名資料夾「'+esc(state.activeFolder)+'」">✎ 重新命名</button><button class="chip" type="button" id="btnDelFolder" aria-label="刪除資料夾「'+esc(state.activeFolder)+'」">🗑 刪除資料夾</button>';
-  }
+  if(state.folders.length)h+='<span class="note" style="flex-basis:100%">提示：在資料夾上按右鍵（手機請長按）可重新命名或刪除</span>';
   f.innerHTML=h;
 }
 
@@ -505,14 +514,17 @@ document.addEventListener("click",function(ev){
   var t=ev.target;
   if(t.matches&&t.matches("[data-close]")){t.closest("dialog").close();return}
   var chip=t.closest&&t.closest("[data-folder]");
-  if(chip){state.activeFolder=chip.getAttribute("data-folder");save();render();return}
+  if(chip&&Date.now()-lpFired<700){return}
+  if(chip){closeFolderMenu();state.activeFolder=chip.getAttribute("data-folder");save();render();return}
   if(t.id==="btnNewFolder"){folderEdit=null;$("folderTitle").textContent="建立資料夾";$("btnFolderOk").textContent="建立";$("folderName").value="";$("dlgFolder").showModal();return}
+  if(!t.closest("#folderMenu"))closeFolderMenu();
   if(t.id==="btnRenameFolder"){
-    folderEdit=state.activeFolder;$("folderTitle").textContent="重新命名資料夾";$("btnFolderOk").textContent="儲存";
+    folderEdit=menuFolder;closeFolderMenu();$("folderTitle").textContent="重新命名資料夾";$("btnFolderOk").textContent="儲存";
     $("folderName").value=folderEdit;$("dlgFolder").showModal();return;
   }
   if(t.id==="btnDelFolder"){
-    var dn=state.activeFolder,cnt=state.events.filter(function(x){return x.folder===dn}).length;
+    var dn=menuFolder;closeFolderMenu();
+    var cnt=state.events.filter(function(x){return x.folder===dn}).length;
     if(!confirm("確定要刪除資料夾「"+dn+"」嗎？\n裡面的 "+cnt+" 場活動不會被刪除，只會移出資料夾。"))return;
     state.folders=state.folders.filter(function(n){return n!==dn});
     state.events.forEach(function(x){if(x.folder===dn)x.folder=""});
@@ -633,6 +645,45 @@ $("btnProxy").onclick=function(){
 };
 $("srcUrl").addEventListener("keydown",function(e){if(e.key==="Enter")$("btnAnalyze").click()});
 var folderEdit=null;
+/* 資料夾選單：右鍵（電腦）或長按（手機）開啟 */
+var menuFolder="",lpTimer=null,lpFired=0,lpX=0,lpY=0;
+function openFolderMenu(name,x,y,chipEl){
+  menuFolder=name;
+  var m=$("folderMenu");m.hidden=false;
+  var w=m.offsetWidth,h=m.offsetHeight;
+  m.style.left=Math.max(8,Math.min(x,innerWidth-w-8))+"px";
+  m.style.top=Math.max(8,Math.min(y,innerHeight-h-8))+"px";
+  m.setAttribute("aria-label","資料夾「"+name+"」選單");
+  $("btnRenameFolder").focus();
+}
+function closeFolderMenu(){$("folderMenu").hidden=true}
+document.addEventListener("contextmenu",function(ev){
+  var chip=ev.target.closest&&ev.target.closest("[data-folder]");
+  if(!chip||!chip.getAttribute("data-folder")){return}
+  ev.preventDefault();
+  var r=chip.getBoundingClientRect();
+  openFolderMenu(chip.getAttribute("data-folder"),ev.clientX||r.left,ev.clientY||r.bottom,chip);
+});
+document.addEventListener("touchstart",function(ev){
+  var chip=ev.target.closest&&ev.target.closest("[data-folder]");
+  if(!chip||!chip.getAttribute("data-folder"))return;
+  var tt=ev.touches[0];lpX=tt.clientX;lpY=tt.clientY;
+  clearTimeout(lpTimer);
+  lpTimer=setTimeout(function(){
+    lpFired=Date.now();
+    var r=chip.getBoundingClientRect();
+    openFolderMenu(chip.getAttribute("data-folder"),r.left,r.bottom+6,chip);
+    if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){}
+  },500);
+},{passive:true});
+document.addEventListener("touchmove",function(ev){
+  var tt=ev.touches[0];
+  if(Math.abs(tt.clientX-lpX)>10||Math.abs(tt.clientY-lpY)>10)clearTimeout(lpTimer);
+},{passive:true});
+["touchend","touchcancel"].forEach(function(n){document.addEventListener(n,function(){clearTimeout(lpTimer)},{passive:true})});
+document.addEventListener("keydown",function(ev){if(ev.key==="Escape")closeFolderMenu()});
+window.addEventListener("scroll",closeFolderMenu,{passive:true});
+window.addEventListener("resize",closeFolderMenu);
 $("btnFolderOk").onclick=function(){
   var n=$("folderName").value.trim();
   if(!n){toast("請輸入資料夾名稱");return}
