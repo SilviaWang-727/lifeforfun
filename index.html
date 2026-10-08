@@ -274,7 +274,13 @@ function toast(t){var el=$("toast");el.textContent=t;el.hidden=false;clearTimeou
 function wd(d){return "日一二三四五六"[new Date(d+"T00:00:00").getDay()]}
 function fmtD(d){var p=d.split("-");return Number(p[1])+"/"+Number(p[2])+"（"+wd(d)+"）"}
 function fmtDate(e){return fmtD(e.date)+(e.endDate&&e.endDate>e.date?" ~ "+fmtD(e.endDate):"")+(e.start?" "+e.start+(e.end?"–"+e.end:""):"")}
-var TODAY="2026-10-08";
+/* 今天的日期（用裝置的當地時間，不寫死） */
+var TODAY=(function(){var d=new Date();return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2)})();
+/* 貼文只寫月日時推測年份：超過約半年前的日期視為明年 */
+function guessYear(mo,d){
+  var y=+TODAY.slice(0,4),c=y+"-"+("0"+mo).slice(-2)+"-"+("0"+d).slice(-2);
+  return (new Date(c+"T00:00:00")-new Date(TODAY+"T00:00:00"))/86400000<-180?y+1:y;
+}
 
 /* 數字摘要 */
 function renderStats(){
@@ -433,7 +439,7 @@ function parseDates(text){
   var R=/(?:(\d{4})[\/\-.年])?(\d{1,2})[\/月](\d{1,2})日?\s*(?:[（(][^）)]*[）)])?\s*[-–~～〜至到]\s*(?:(?:(\d{4})[\/\-.年])?(\d{1,2})[\/月])?(\d{1,2})(?![\d:：])/;
   var m=text.match(R),y1,mo1,d1,y2,mo2,d2,a,b;
   if(m){
-    y1=+(m[1]||2026);mo1=+m[2];d1=+m[3];mo2=m[5]?+m[5]:mo1;d2=+m[6];y2=+(m[4]||y1);
+    mo1=+m[2];d1=+m[3];y1=m[1]?+m[1]:guessYear(mo1,d1);mo2=m[5]?+m[5]:mo1;d2=+m[6];y2=+(m[4]||y1);
     if(!m[4]&&mo2<mo1)y2=y1+1;
     if(okMD(mo1,d1)&&okMD(mo2,d2)){
       a=iso(y1,mo1,d1);b=iso(y2,mo2,d2);
@@ -444,7 +450,7 @@ function parseDates(text){
   var S=/(?:(\d{4})[\/\-.年])?(\d{1,2})[\/月](\d{1,2})/g,list=[];
   while((m=S.exec(text))){
     if(!okMD(+m[2],+m[3]))continue;
-    a=iso(+(m[1]||2026),+m[2],+m[3]);if(list.indexOf(a)<0)list.push(a);
+    a=iso(m[1]?+m[1]:guessYear(+m[2],+m[3]),+m[2],+m[3]);if(list.indexOf(a)<0)list.push(a);
   }
   if(!list.length)return {date:TODAY,endDate:""};
   var lo=list.slice().sort()[0],hi=list.slice().sort()[list.length-1];
