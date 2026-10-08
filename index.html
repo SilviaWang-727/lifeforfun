@@ -172,14 +172,9 @@ dialog::backdrop{background:rgba(20,50,70,.5)}
 
 <dialog id="dlgGoogle">
   <h2>連結 Google 帳號</h2>
-  <p class="note">登入後，已去過標記、資料夾與清單會同步到雲端，換手機或電腦也能看到，也能建立分享連結。需要先建立 Supabase 專案（步驟見部署說明），並用網站網址（https）開啟。</p>
-  <label class="note" for="sbUrl">Supabase 專案網址</label>
-  <input type="text" id="sbUrl" placeholder="https://xxxx.supabase.co">
-  <label class="note" for="sbKey">Supabase anon public key</label>
-  <input type="text" id="sbKey" placeholder="eyJ…">
+  <p class="note">登入後，已去過標記、資料夾與清單會同步到雲端，換手機或電腦也能看到，也能建立分享連結。登入只會取得你的 Google Email 與名稱。</p>
   <div class="row" style="margin-top:12px;justify-content:flex-end">
     <button class="btn" type="button" data-close>取消</button>
-    <button class="btn" id="btnGoogleOk" type="button">先用示範模式</button>
     <button class="btn primary" id="btnGoogleLogin" type="button">以 Google 登入</button>
   </div>
 </dialog>
@@ -346,8 +341,7 @@ function renderGoogle(){
   var b=$("btnGoogle");
   $("btnAdmin").hidden=!!user;
   if(user){b.innerHTML='<span class="avatar">'+esc((user.email||"G").charAt(0).toUpperCase())+'</span> '+esc(user.email||"已登入")+' · 登出';$("syncNote").textContent="已登入 Google：已去過、資料夾與清單會自動同步到雲端。";return}
-  if(state.google){b.innerHTML='<span class="avatar">示</span> 已同步 · 示範帳號';$("syncNote").textContent="已連結示範 Google 帳號：已去過、資料夾與清單會自動同步（示範狀態）。"}
-  else{b.textContent="連結 Google 帳號";$("syncNote").textContent="目前資料只存在這台裝置。連結 Google 帳號後可跨裝置同步（此頁為示範，未真的連到 Google）。"}
+  b.textContent="連結 Google 帳號";$("syncNote").textContent="目前「已去過」與資料夾只存在這台裝置。連結 Google 帳號後可跨裝置同步。"
 }
 
 /* 貼文分析 */
@@ -627,8 +621,7 @@ $("btnImport").onclick=function(){
 /* Supabase：Google 登入、跨裝置同步、分享連結 */
 var SB=null,user=null,pushT=null,incoming=null;
 function sbCfg(){
-  var c={};try{c=JSON.parse(localStorage.getItem("eventRadarSb")||"{}")}catch(e){}
-  return {url:c.url||SB_URL,key:c.key||SB_KEY};
+  return {url:SB_URL,key:SB_KEY};
 }
 function initSb(){
   var c=sbCfg();
@@ -652,7 +645,7 @@ function schedulePush(){
 function pull(){
   SB.from("user_state").select("state").eq("user_id",user.id).maybeSingle().then(function(r){
     var rs=r.data&&r.data.state;
-    if(rs&&(rs.ts||0)>(state.ts||0)){state.events=rs.events||[];state.folders=rs.folders||[];state.ts=rs.ts;persist();render();toast("已從雲端同步")}
+    if(rs&&(rs.ts||0)>(state.ts||0)){state.events=rs.events||[];state.folders=rs.folders||[];state.ts=rs.ts;persist();render();loadPublic();toast("已從雲端同步")}
     else{schedulePush();toast("已登入，資料同步中")}
   });
 }
@@ -687,23 +680,14 @@ $("btnTakeIn").onclick=function(){
   var n=importList(incoming.events);$("dlgIncoming").close();toast("已加入 "+n+" 筆活動");
   try{history.replaceState(null,"",location.href.split("#")[0])}catch(e){}
 };
-function openGoogle(){
-  var c=sbCfg();$("sbUrl").value=c.url;$("sbKey").value=c.key;
-  $("dlgGoogle").showModal();
-}
 $("btnGoogle").onclick=function(){
   if(user){SB.auth.signOut().then(function(){user=null;renderGoogle();toast("已登出，資料仍保留在這台裝置")});return}
-  if(state.google){state.google=false;save();render();toast("已中斷示範同步");return}
-  openGoogle();
+  $("dlgGoogle").showModal();
 };
 $("btnGoogleLogin").onclick=function(){
-  var u=$("sbUrl").value.trim(),k=$("sbKey").value.trim();
-  if(!/^https:\/\//.test(u)||!k){toast("請填入 Supabase 專案網址與 anon key");return}
-  try{localStorage.setItem("eventRadarSb",JSON.stringify({url:u,key:k}))}catch(e){}
   if(!initSb()){toast("Supabase 套件沒有載入，請確認網路連線");return}
-  SB.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.href.split("#")[0]}}).then(function(r){if(r.error)toast("登入失敗："+r.error.message)});
+  SB.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+location.pathname}}).then(function(r){if(r.error)toast("登入失敗："+r.error.message)});
 };
-$("btnGoogleOk").onclick=function(){state.google=true;save();$("dlgGoogle").close();render();toast("已連結（示範）")};
 $("btnTheme").onclick=function(){
   var r=document.documentElement,dark=r.getAttribute("data-theme")==="dark"||(!r.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme: dark)").matches);
   r.setAttribute("data-theme",dark?"light":"dark");
