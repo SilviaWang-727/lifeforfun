@@ -693,7 +693,7 @@ function loadPublic(msg){
     state.events.forEach(function(e){old[e.id]=e});
     var db=x.data.map(function(r){ids[r.id]=1;var o=old[r.id]||{};
       return{id:r.id,title:r.title,date:r.event_date,start:r.start_time,end:r.end_time,place:r.place,area:r.area,district:r.district,type:r.type,src:r.source,url:"",visited:!!o.visited,folder:o.folder||""}});
-    var local=state.events.filter(function(e){return !ids[e.id]&&!/^d\d+$/.test(e.id)});
+    var local=state.events.filter(function(e){return !ids[e.id]&&!/^d\d+$/.test(e.id)&&!/^[0-9a-f]{8}-[0-9a-f-]{27}$/.test(e.id)});
     state.events=db.concat(local);persist();render();
     if(msg)toast(msg);
   });
